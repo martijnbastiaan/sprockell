@@ -14,7 +14,7 @@ import TypesEtc
 
 
 initstate ident = SprState {
-         regbank = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, sp0)
+         regbank = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
        , dmem    = replicate dmemsize 0
        , active  = ident == 0 }
         where
@@ -49,9 +49,6 @@ nullcode    = MachCode {
 -------------------------------------------------------------}
 
 dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
-
-
-sp0    = 20 :: Int
 
 incr     =   (+1)
 decr     = (+(-1))
@@ -90,7 +87,7 @@ decode sp instr  = case instr of
     Store r (Addr n)         -> nullcode {stCode=StAddr, fromreg0=r, toaddr=n}
     Store r (Deref r1)       -> nullcode {stCode=StDeref, fromreg0=r, toind=r1}
 
-    Push r                   -> nullcode {stCode=StAddr, fromreg0=r, toaddr=sp+1, spCode=Up}
+    Push r                   -> nullcode {stCode=StAddr, fromreg0=r, toaddr=sp-1, spCode=Up}
     Pop r                    -> nullcode {ldCode=LdAddr, fromaddr=sp, toreg =r, spCode=Down}
 
     Request (Addr n)         -> nullcode {ioCode=IO_Read_Addr, memAddr=n}
@@ -174,8 +171,8 @@ pcUpd jmpCode jmpTarget pc x fromind input immvalueR = n
 -- ============================
 spUpd :: SPCode -> Int -> Int -> Int
 spUpd spCode sp spDiff    = case spCode of
-            Up      -> sp + spDiff
-            Down    -> sp - spDiff
+            Up      -> sp - spDiff
+            Down    -> sp + spDiff
             None    -> sp
 
 -- ============================
