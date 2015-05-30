@@ -14,3 +14,21 @@ See the [wiki](https://github.com/martijnbastiaan/sprockell/wiki).
 
 # Running
 Clone the repository, compile `System.hs` using `ghc` and run it from the command line. A (really) simple program runs and terminates.
+
+```haskell
+module Program where
+
+import Sprockell
+import System
+import TypesEtc
+
+prog = [
+    Const 8 regA
+    Const 9 regB
+    Compute Add regA regB regC
+   ]
+
+run 1 prog
+```
+
+Where `1` is the amount of Sprockells you want to deploy.
