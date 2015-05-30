@@ -95,9 +95,8 @@ decode sp instr  = case instr of
 -- ============================
 alu :: Operator -> Int -> Int -> Int
 alu opCode x y = case opCode of
-            Incr   -> succ x
-            Decr   -> pred x
-            Neg    -> negate x
+            Incr   -> x + 1
+            Decr   -> x - 1
             Add    -> x + y
             Sub    -> x - y
             Mul    -> x * y
@@ -111,7 +110,9 @@ alu opCode x y = case opCode of
             LtE    -> tobit (x <= y)
             And    -> x .&. y
             Or     -> x .|. y
-            Not    -> complement x
+            LShift -> shiftL x y
+            RShift -> shiftL x y
+            Xor    -> x `xor` y
     where
         tobit True  = 1
         tobit False = 0

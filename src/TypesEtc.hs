@@ -27,22 +27,19 @@ data Target = Abs Int
             | Ind Reg
             deriving (Eq,Show)
 
-data Operator   = 
-                -- unary operations
-                Incr | Decr | Neg | Not
-                -- binary operations
-                | Add  | Sub | Mul  | Div | Mod 
-                -- comparision operations
-                | Equal | NEq | Gt | Lt | GtE | LtE
-                -- logical/binary operations
-                | And | Or
-                deriving (Eq,Show)
-
+data Operator = Add  | Sub | Mul  | Div | Mod 
+              -- comparision operations
+              |  Equal | NEq | Gt | Lt | GtE | LtE
+              -- logical/binary operations
+              | And | Or | Xor | LShift | RShift
+              -- Internal
+              | Decr | Incr
+                 deriving (Eq,Show)
 
 data Instruction = 
           -- Compute opCode r0 r1 r2: go to "alu",
           -- do "opCode" on regs r0, r1, and put result in reg r2
-          Compute Operator Reg Reg Reg  
+          Compute Operator Reg Reg Reg
                                          
         | Const Int Reg
 
