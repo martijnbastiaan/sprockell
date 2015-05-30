@@ -161,11 +161,7 @@ type Stack       = [Int]
 type Request     = Maybe SprockellOut
 type Reply     = Maybe Int
 
-
-type SprFunc  = Int -> [Instruction] -> SprState -> Maybe Int -> (SprState, Maybe SprockellOut, Maybe PowerOut)
-
-
-data Sprockell = Sprockell Int SprFunc [Instruction] SprState
+data Sprockell = Sprockell Int [Instruction] SprState
 
 --                 Sprockell outputs    mem   seq
 type ShMemState = ([(Int,SprockellOut)],[Int], Int)

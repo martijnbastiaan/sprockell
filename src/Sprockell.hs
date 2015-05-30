@@ -171,10 +171,7 @@ sendPower powerCode (sprockell, instr) = case powerCode of
 
 -- ======================================================================================
 -- Putting it all together
-
-sprockell :: SprFunc
-
-sprockell ident  instrs  SprState{..} input = sprstate
+sprockell ident instrs  SprState{..} input = sprstate
         where
           MachCode{..}  = decode (regbank !! fromEnum SP) (instrs !! fromEnum PC)
 

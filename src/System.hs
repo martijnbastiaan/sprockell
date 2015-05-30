@@ -9,11 +9,11 @@ import PseudoRandom
 
 -- execS prevents executing Sprockells which have active=false set.
 execS spr inp
-        | not $ halted spr = (Sprockell ident sprfunc instrs sprState', outp, powerreq)
+        | not $ halted spr = (Sprockell ident instrs sprState', outp, powerreq)
         | otherwise = (spr, Nothing, Nothing)
                 where
-                  (Sprockell ident sprfunc instrs sprState) = spr
-                  (sprState',outp,powerreq) = sprfunc ident instrs sprState inp
+                  (Sprockell ident instrs sprState) = spr
+                  (sprState',outp,powerreq) = sprockell ident instrs sprState inp
 
 prog = [ 
            Const 1 RegA 
@@ -88,7 +88,7 @@ execM (ShMem shMem st) reqs = (ShMem shMem st' , replies)
 -- ===========================================================================================
 -- ===========================================================================================
 power' :: Sprockell -> Bool -> Int -> Sprockell
-power' (Sprockell ident sprfunc instrs spr) active pc = Sprockell ident sprfunc instrs spr{active=active}
+power' (Sprockell ident instrs spr) active pc = Sprockell ident instrs spr{active=active}
 
 power :: [Sprockell] -> Maybe PowerOut -> [Sprockell]
 power sprs Nothing = sprs
@@ -116,7 +116,7 @@ system (sprs, buffersS2M,buffersM2S, shmem) = do
 -- ===========================================================================================
 -- Determine if sprockells have reached "EndProg"
 halted :: Sprockell -> Bool
-halted (Sprockell _ _ instrs SprState{regbank=regbank, active=active}) =
+halted (Sprockell _ instrs SprState{regbank=regbank, active=active}) =
     case (instrs !! (regbank !! fromEnum PC)) of
         EndProg -> True
         _       -> not active
@@ -135,9 +135,9 @@ sysSim sys sysState n = do
         let (sprs , spr2Mems ,mem2Sprs , mem ) = sysState
         let ShMem f m = mem
 
-        let Sprockell _ _ _ SprState{regbank=regbank1,active=active1} = sprs !! 0
-        let Sprockell _ _ _ SprState{regbank=regbank2,active=active2} = sprs !! 1
-        let Sprockell _ _ _ SprState{regbank=regbank3,active=active3} = sprs !! 2
+        let Sprockell _  _ SprState{regbank=regbank1,active=active1} = sprs !! 0
+        let Sprockell _  _ SprState{regbank=regbank2,active=active2} = sprs !! 1
+        let Sprockell _  _ SprState{regbank=regbank3,active=active3} = sprs !! 2
 
         let tobit True = 1
         let tobit False = 0
@@ -170,7 +170,7 @@ head' (x:xs)    = x
 -- ===========================================================================================
 -- ===========================================================================================
 spr :: [Instruction] -> Int -> Sprockell
-spr instrs ident = Sprockell ident sprockell instrs (initstate ident)
+spr instrs ident = Sprockell ident instrs (initstate ident)
 
 run :: Int -> [Instruction] -> IO [[Int]]
 run n instrs = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0) 0
