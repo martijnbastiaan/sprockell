@@ -6,7 +6,7 @@ import Data.List
 import Debug.Trace
 
 -- ==========================================================================================================
--- Sprockell
+-- Sprockell instructions
 data Reg = Zero
          | PC
          | SP
@@ -16,25 +16,27 @@ data Reg = Zero
          | RegC
          | RegD
          | RegE
-             deriving (Eq,Show,Ord,Enum,Bounded)
+         deriving (Eq,Show,Ord,Enum,Bounded)
 
-data MemAddr    = Addr Int
-                | Deref Reg
-                    deriving (Eq,Show)
+data MemAddr = Addr Int
+             | Deref Reg
+             deriving (Eq,Show)
 
-data Target     = Abs Int
-                | Rel Int
-                | Ind Reg
-                    deriving (Eq,Show)
+data Target = Abs Int
+            | Rel Int
+            | Ind Reg
+            deriving (Eq,Show)
 
 data Operator   = 
-                -- no corresponding functions in prog. language
-                Id | Incr | Decr 
                 -- unary operations
-                | Neg | Not
+                Incr | Decr | Neg | Not
                 -- binary operations
-                | Add  | Sub | Mul  | Div | Mod | Equal | NEq | Gt | Lt | And | Or
-                    deriving (Eq,Show)
+                | Add  | Sub | Mul  | Div | Mod 
+                -- comparision operations
+                | Equal | NEq | Gt | Lt | GtE | LtE
+                -- logical/binary operations
+                | And | Or
+                deriving (Eq,Show)
 
 
 data Instruction = 
@@ -44,7 +46,7 @@ data Instruction =
                                          
         | Const Int Reg
 
-        | Branch Target
+        | Branch Reg Target
         | Jump Target
 
         | Load MemAddr Reg                -- Load (Addr a) r : from "memory a" to "regbank r"
@@ -72,39 +74,33 @@ data Instruction =
                     -- this instruction, the simulation will halt.
         | Nop            -- "No operation"
         | Debug String
-                deriving (Eq,Show)
+        deriving (Eq,Show)
 
 
+-- ==========================================================================================================
+-- Internal Sprockell data structures
 
-
--- Internal
 data TargetCode = TAbs
                 | TRel
                 | TInd
-                   deriving (Eq,Show)
+                deriving (Eq,Show)
 
-data LdCode = NoLoad
-            | LdImm
+data LdCode = LdImm
             | LdAddr
             | LdInd
-            | LdAlu
             | LdInp 
-                deriving (Eq,Show)
+            deriving (Eq,Show)
 
 data StCode = NoStore
             | StAddr
             | StDeref
-                deriving (Eq,Show)
+            deriving (Eq,Show)
 
-data SPCode = None
-            | Up
-            | Down
-                deriving (Eq,Show)
-
-data JmpCode = TJump
+data JmpCode = TNext
+             | TJump
              | TBranch
              | TWait
-                deriving (Eq,Show)
+             deriving (Eq,Show)
 
 data IOCode = IO_None
             | IO_Read_Addr
@@ -113,33 +109,27 @@ data IOCode = IO_None
             | IO_Write_Ind
             | IO_Test_Addr
             | IO_Test_Ind
-               deriving (Eq,Show)
+            deriving (Eq,Show)
 
 data PowerCode = Power_None
                | Power_Start
                | Power_Stop
-                  deriving (Eq,Show)
+               deriving (Eq,Show)
 
 data MachCode = MachCode { 
-       ldCode      :: LdCode       -- 0/1: load from dmem to rbank?
+         ldCode    :: LdCode       -- 0/1: load from dmem to rbank?
        , stCode    :: StCode       -- storeCode
-       , spCode    :: SPCode
        , opCode    :: Operator -- opCode
        , ioCode    :: IOCode    -- code whether to send a read or werite message
-       , immvalueR :: Int          -- value from Immediate - to regbank
-       , immvalueS :: Int          -- value from Immediate - to store
+       , immvalue  :: Int          -- value from Immediate
        , fromreg0  :: Reg          -- ibid, first parameter of Compute
        , fromreg1  :: Reg          -- ibid, second parameter of Compute
-       , fromaddr  :: Int          -- address in dmem
-       , fromind   :: Reg
        , toreg     :: Reg          -- ibid, third parameter of Compute
-       , toaddr    :: Int          -- address in dmem
-       , toind     :: Reg
+       , loadreg   :: Reg          -- where to load result is writen to
+       , addr      :: Int          -- address in dmem
+       , deref     :: Reg
        , jmpTarget :: TargetCode
        , jmpCode   :: JmpCode      -- 0/1: indicates a jump
-       , jumpN     :: Int
-       , spDiff    :: Int        -- amount stack pointer should change with
-       , memAddr   :: Int        -- indicates which address in shared memory to read from or to write to
        , powerCode :: PowerCode     -- indicates whether another Sprockell core should be started
         }
             deriving (Eq,Show)
@@ -194,28 +184,3 @@ type SystemState = ([Sprockell], [[Request]], [[Reply]], ShMem)
 
 data Tick = Tick deriving (Eq,Show)
 clock = Tick : clock
-
--- ==========================================================================================================
-head'  []       = Nothing
-head' (x:xs)    = x
-
-tail'  []       = []
-tail' (x:xs)    = xs
-
-xs <: x = xs ++ [x]
-xs <+ x = tail' xs ++ [x]
-
-xs <~ (i,x) = take i xs ++ [x] ++ drop (i+1) xs         -- TODO: note the effect for i >= length xs
-
-xss <~~ ((i,j),x) = xss <~ (i, ((xss!!i) <~ (j,x)))
-
-
-fst3 (a,_,_) = a
-snd3 (_,b,_) = b
-thd3 (_,_,c) = c
-
-fst4 (a,_,_,_) = a
-snd4 (_,b,_,_) = b
-thd4 (_,_,c,_) = c
-fth4 (_,_,_,d) = d
-

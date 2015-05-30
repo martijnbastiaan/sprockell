@@ -139,6 +139,10 @@ sysSim sys sysState n = do
         let Sprockell _ _ _ SprState{regbank=regbank2,active=active2} = sprs !! 1
         let Sprockell _ _ _ SprState{regbank=regbank3,active=active3} = sprs !! 2
 
+        let tobit True = 1
+        let tobit False = 0
+
+
         let print = [
                 regbank1!!fromEnum RegA,
                 regbank1!!fromEnum RegB,
@@ -154,6 +158,13 @@ sysSim sys sysState n = do
         x <- sysSim sys (sysState') (n+1)
         return (print : x)
 
+
+fst3 (a,_,_) = a
+snd3 (_,b,_) = b
+thd3 (_,_,c) = c
+
+head'  []       = Nothing
+head' (x:xs)    = x
 
 
 -- ===========================================================================================

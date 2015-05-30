@@ -2,6 +2,7 @@
 
 module Sprockell where
 
+import Data.Bits
 import Debug.Trace
 import TypesEtc
 
@@ -13,52 +14,35 @@ import TypesEtc
 -------------------------------------------------------------}
 
 
-initstate ident = SprState {
-         regbank = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
-       , dmem    = replicate dmemsize 0
-       , active  = ident == 0 }
-        where
-            regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
-
-
-nullcode    = MachCode {
-                 ldCode      = NoLoad
-               , stCode      = NoStore
-               , opCode      = Id
-               , jmpCode     = TJump
-               , spCode      = None
-               , ioCode      = IO_None
-               , jmpTarget   = TRel
-               , immvalueR   = 0
-               , immvalueS   = 0
-               , fromreg0    = Zero
-               , fromreg1    = Zero
-               , fromaddr    = 0
-               , fromind     = Zero
-               , toreg       = Zero
-               , toaddr      = 0
-               , toind       = Zero
-               , memAddr     = 0
-               , spDiff      = 1
-               , powerCode   = Power_None
-               , jumpN       = 1
-               }
-
 {-------------------------------------------------------------
 | some constants
 -------------------------------------------------------------}
 
 dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
 
-incr     =   (+1)
-decr     = (+(-1))
 
-tobit True  = 1
-tobit False = 0
+initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0, active  = ident == 0 }
+    where
+        regvalues = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
+        regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
 
 
-(i,x) ~> xs  = xs <~ (i,x)
-
+nullcode    = MachCode {
+                 ldCode      = LdImm
+               , stCode      = NoStore
+               , opCode      = Or
+               , jmpCode     = TNext
+               , ioCode      = IO_None
+               , jmpTarget   = TAbs
+               , immvalue    = 0
+               , fromreg0    = Zero
+               , fromreg1    = Zero
+               , toreg       = Zero
+               , loadreg     = Zero
+               , addr        = 0
+               , deref       = Zero
+               , powerCode   = Power_None
+               }
 
 {-------------------------------------------------------------
 | The actual Sprockell
@@ -69,37 +53,37 @@ decode :: Int -> Instruction -> MachCode
 decode sp instr  = case instr of
     Nop                      -> nullcode
 
-    Compute c i0 i1 i2       -> nullcode {ldCode =LdAlu,  opCode=c, fromreg0=i0, fromreg1=i1, toreg=i2}
+    Compute c r0 r1 r2       -> nullcode {opCode=c, fromreg0=r0, fromreg1=r1, toreg=r2}
     
-    Branch (Abs n)           -> nullcode {jmpCode=TBranch, jmpTarget=TAbs, jumpN=n, spCode=Down}
-    Branch (Rel n)           -> nullcode {jmpCode=TBranch, jmpTarget=TRel, jumpN=n, spCode=Down}
-    Branch (Ind r)           -> nullcode {jmpCode=TBranch, jmpTarget=TInd, fromind=r, spCode=Down}
+    Branch r0 (Abs n)        -> nullcode {jmpCode=TBranch, jmpTarget=TAbs, immvalue=n, fromreg0=r0}
+    Branch r0 (Rel n)        -> nullcode {jmpCode=TBranch, jmpTarget=TRel, immvalue=n, fromreg0=r0}
+    Branch r0 (Ind i)        -> nullcode {jmpCode=TBranch, jmpTarget=TInd, deref=i   , fromreg0=r0}
 
-    Jump   (Abs n)           -> nullcode {jmpCode=TJump, jmpTarget=TAbs, jumpN=n}
-    Jump   (Rel n)           -> nullcode {jmpCode=TJump, jmpTarget=TRel, jumpN=n}
-    Jump   (Ind r)           -> nullcode {jmpCode=TJump, jmpTarget=TInd, fromind=r}
+    Jump   (Abs n)           -> nullcode {jmpCode=TJump, jmpTarget=TAbs, immvalue=n}
+    Jump   (Rel n)           -> nullcode {jmpCode=TJump, jmpTarget=TRel, immvalue=n}
+    Jump   (Ind r)           -> nullcode {jmpCode=TJump, jmpTarget=TInd, deref=r}
 
-    Const n r                -> nullcode {ldCode=LdImm, immvalueR=n, toreg=r}
+    Const n r                -> nullcode {ldCode=LdImm, immvalue=n, loadreg=r}
 
-    Load  (Addr n)  r1       -> nullcode {ldCode=LdAddr, fromaddr=n, toreg=r1}
-    Load  (Deref r) r1       -> nullcode {ldCode=LdInd, fromind=r, toreg=r1}
+    Load  (Addr a)  r        -> nullcode {ldCode=LdAddr, addr=a, loadreg=r}
+    Load  (Deref p) r        -> nullcode {ldCode=LdInd, deref=p, loadreg=r}
 
-    Store r (Addr n)         -> nullcode {stCode=StAddr, fromreg0=r, toaddr=n}
-    Store r (Deref r1)       -> nullcode {stCode=StDeref, fromreg0=r, toind=r1}
+    Store r (Addr a)         -> nullcode {stCode=StAddr, fromreg1=r, addr=a}
+    Store r (Deref p)        -> nullcode {stCode=StDeref, fromreg1=r, deref=p}
 
-    Push r                   -> nullcode {stCode=StAddr, fromreg0=r, toaddr=sp-1, spCode=Up}
-    Pop r                    -> nullcode {ldCode=LdAddr, fromaddr=sp, toreg =r, spCode=Down}
+    Push r                   -> nullcode {stCode=StAddr, fromreg1=r, addr=sp-1, opCode=Decr, fromreg0=SP, toreg=SP}
+    Pop r                    -> nullcode {ldCode=LdAddr, addr=sp, loadreg=r   , opCode=Incr, fromreg0=SP, toreg=SP}
 
-    Request (Addr n)         -> nullcode {ioCode=IO_Read_Addr, memAddr=n}
-    Request (Deref r)        -> nullcode {ioCode=IO_Read_Ind, fromind=r}
+    Request (Addr a)         -> nullcode {ioCode=IO_Read_Addr, addr=a}
+    Request (Deref p)        -> nullcode {ioCode=IO_Read_Ind, deref=p}
 
-    Receive j                -> nullcode {ldCode=LdInp, jmpCode=TWait, toreg=j}
+    Receive r                -> nullcode {ldCode=LdInp, jmpCode=TWait, toreg=r}
 
-    TestAndSet (Addr i)      -> nullcode {ioCode=IO_Test_Addr, memAddr=i}
-    TestAndSet (Deref i)     -> nullcode {ioCode=IO_Test_Ind, fromind=i}
+    TestAndSet (Addr a)      -> nullcode {ioCode=IO_Test_Addr, addr=a}
+    TestAndSet (Deref p)     -> nullcode {ioCode=IO_Test_Ind, deref=p}
 
-    Write j (Addr i)         -> nullcode {ioCode=IO_Write_Addr, memAddr=i, fromreg0=j}
-    Write j (Deref r)        -> nullcode {ioCode=IO_Write_Ind, fromind=r, fromreg0=j}
+    Write j (Addr a)         -> nullcode {ioCode=IO_Write_Addr, addr=a, fromreg1=j}
+    Write j (Deref p)        -> nullcode {ioCode=IO_Write_Ind, deref=p, fromreg1=j}
 
     Start spr line           -> nullcode {powerCode=Power_Start, fromreg0=spr, fromreg1=line}
     Stop spr                 -> nullcode {powerCode=Power_Stop, fromreg0=spr}
@@ -111,10 +95,9 @@ decode sp instr  = case instr of
 -- ============================
 alu :: Operator -> Int -> Int -> Int
 alu opCode x y = case opCode of
-            Id     -> x
-            Incr   -> incr x
-            Decr   -> decr x
-            Neg    -> -x
+            Incr   -> succ x
+            Decr   -> pred x
+            Neg    -> negate x
             Add    -> x + y
             Sub    -> x - y
             Mul    -> x * y
@@ -123,57 +106,50 @@ alu opCode x y = case opCode of
             Equal  -> tobit (x == y)
             NEq    -> tobit (x /= y)
             Gt     -> tobit (x > y)
+            GtE    -> tobit (x >= y)
             Lt     -> tobit (x < y)
-            And    -> x * y
-            Or     -> x `max` y
-            Not    -> 1 - x
+            LtE    -> tobit (x <= y)
+            And    -> x .&. y
+            Or     -> x .|. y
+            Not    -> complement x
+    where
+        tobit True  = 1
+        tobit False = 0
 
 -- ============================
-load :: [Int] -> LdCode -> Reg -> (Int, Int, Int, Int, Maybe Int) -> [Int]
-load regbank ldCode reg (immvalueR, mval, toAddrVal, aluOutput, input) = regbank <~ (fromEnum reg, v)
-        where
-            v =  case ldCode of
-                NoLoad  -> 0
-                LdImm   -> immvalueR
-                LdInd   -> mval
-                LdAddr  -> toAddrVal
-                LdAlu   -> aluOutput
-                LdInp   -> case input of
-                             Just x  -> x
-                             Nothing -> 0
+load :: [Int] -> LdCode -> (Int, Int, Int, Maybe Int) -> Int
+load dmem ldCode (immvalue, addr, derefAddr, input) = case ldCode of
+        LdImm   -> immvalue
+        LdAddr  -> dmem !! addr
+        LdInd   -> dmem !! derefAddr
+        LdInp   -> case input of
+                        Just x  -> x
+                        Nothing -> 0
 
 -- ============================
-store :: [Int] -> StCode -> Int -> (Int,Int,Int) -> [Int]
-store dmem stCode toaddr (immvalueS, toAddr, x) = dmem'
-        where
-          dmem' =  case stCode of
-                NoStore -> dmem
-                StDeref -> dmem <~ (toAddr, x)
-                StAddr  -> dmem <~ (toaddr, x)
+store :: [Int] -> StCode -> (Int, Int,Int) -> [Int]
+store dmem stCode (addr, derefAddr, x) = case stCode of
+        NoStore -> dmem
+        StAddr  -> dmem <~ (addr, x)
+        StDeref -> dmem <~ (derefAddr, x)
 
 
 -- ============================
 pcUpd :: JmpCode -> TargetCode -> Int -> Int -> Int -> Maybe a -> Int -> Int
-pcUpd jmpCode jmpTarget pc x fromind input immvalueR = n
+pcUpd jmpCode jmpTarget pc cond fromind input immval = pc'
         where
-            n = case jmpCode of
+            pc' = case jmpCode of
+                   TNext   -> succ pc
                    TJump   -> target
-                   TBranch -> if x == 1 then target else incr pc
+                   TBranch -> if cond /= 0 then target else succ pc
                    TWait   -> case input of
-                             Just _  -> target
+                             Just _  -> succ pc
                              Nothing -> pc
 
             target = case jmpTarget of
-                        TAbs -> immvalueR
-                        TRel -> pc + immvalueR
-                        TInd -> fromind
-
--- ============================
-spUpd :: SPCode -> Int -> Int -> Int
-spUpd spCode sp spDiff    = case spCode of
-            Up      -> sp - spDiff
-            Down    -> sp + spDiff
-            None    -> sp
+                        TAbs  -> immval
+                        TRel  -> pc + immval
+                        TInd  -> fromind
 
 -- ============================
 sendOut :: IOCode -> (Int, Int, Int) -> Maybe SprockellOut
@@ -201,25 +177,31 @@ sprockell ident  instrs  SprState{..} input = sprstate
         where
           MachCode{..}  = decode (regbank !! fromEnum SP) (instrs !! fromEnum PC)
 
-          toAddr        = regbank !! toaddr
-          toIndAddr     = regbank !! (fromEnum toind)
-
           reg0          = regbank !! (fromEnum fromreg0)
           reg1          = regbank !! (fromEnum fromreg1)
           aluOutput     = alu opCode reg0 reg1
 
-          memval        = dmem !! fromaddr
-          indMemval     = dmem !! (regbank !! fromEnum fromind)
+          derefAddr     = regbank !! (fromEnum deref)
 
-          regbank'      = load regbank ldCode toreg (immvalueR, memval, indMemval, aluOutput, input)
-          regbank''     = regbank'   <~ (fromEnum Zero, 0)
-          regbank'''    = regbank''  <~ (fromEnum SP, spUpd spCode spDiff (regbank !! fromEnum SP))
-          regbank''''   = regbank''' <~ (fromEnum PC, pcUpd jmpCode jmpTarget (regbank !! fromEnum PC) reg0 indMemval input jumpN)
+          loadValue     = load dmem ldCode (immvalue, addr, derefAddr, input)
+          nextPC        = pcUpd jmpCode jmpTarget (regbank !! fromEnum PC) reg0 derefAddr input immvalue
+          
+          regbank'      = regbank    <~ (fromEnum toreg, aluOutput)
+          regbank''     = regbank'   <~ (fromEnum loadreg, loadValue)
+          regbank'''    = regbank''  <~ (fromEnum Zero, 0)
+          regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
 
-          dmem'         = store dmem stCode toaddr (immvalueS, toAddr, reg0)
+          dmem'         = store dmem stCode (addr, derefAddr, reg1)
 
           -- Managed by System
-          output        = sendOut ioCode (memAddr, indMemval, reg0)
+          output        = sendOut ioCode (addr, derefAddr, reg1)
           power         = sendPower powerCode (reg0, reg1)
 
           sprstate      = (SprState {dmem=dmem',regbank=regbank'''',active=True}, output, power)
+
+-- ==========================================================================================================
+
+xs <: x = xs ++ [x]
+xs <+ x = drop 1 xs ++ [x]
+
+xs <~ (i,x) = take i xs ++ [x] ++ drop (i+1) xs         -- TODO: note the effect for i >= length xs
