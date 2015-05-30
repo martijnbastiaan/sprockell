@@ -111,7 +111,7 @@ alu opCode x y = case opCode of
             And    -> x .&. y
             Or     -> x .|. y
             LShift -> shiftL x y
-            RShift -> shiftL x y
+            RShift -> shiftR x y
             Xor    -> x `xor` y
     where
         tobit True  = 1
