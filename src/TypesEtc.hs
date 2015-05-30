@@ -36,6 +36,9 @@ data Operator = Add  | Sub | Mul  | Div | Mod
               | Decr | Incr
                  deriving (Eq,Show)
 
+data PutType = Int | Char
+                 deriving (Eq,Show)
+
 data Instruction = 
           -- Compute opCode r0 r1 r2: go to "alu",
           -- do "opCode" on regs r0, r1, and put result in reg r2
@@ -59,6 +62,7 @@ data Instruction =
         | Read MemAddr    -- Read from input and put value in regA
         | Receive Reg        -- Read on its way
         | Write Reg MemAddr    -- Write content of regA to output
+        | Put PutType Reg
 
         | Start Reg Reg        -- Start Sprockell `regA` at instruction `regB`. You can use this on
                     -- running Sprockells; keep in mind it only changes the program counter,
@@ -106,6 +110,8 @@ data IOCode = IO_None
             | IO_Write_Ind
             | IO_Test_Addr
             | IO_Test_Ind
+            | IO_Put_Char
+            | IO_Put_Int
             deriving (Eq,Show)
 
 data PowerCode = Power_None
@@ -144,9 +150,11 @@ data SprState = SprState {
 
 
 data SprockellOut = 
-            ReadReq  Int            -- ReadReq   adres
-          | WriteReq Int Int        -- WriteReq  adres value
-          | TestReq  Int            -- TestReq   adres
+            ReadReq    Int            -- ReadReq   adres
+          | WriteReq   Int Int        -- WriteReq  adres value
+          | TestReq    Int            -- TestReq   adres
+          | PutIntReq  Int
+          | PutCharReq Int
              deriving (Eq,Show)
 
 data PowerOut =
@@ -165,9 +173,8 @@ data Sprockell = Sprockell Int [Instruction] SprState
 
 --                 Sprockell outputs    mem   seq
 type ShMemState = ([(Int,SprockellOut)],[Int], Int)
-type ShMemFunc  = ShMemState -> [Request] -> (ShMemState,[Reply])
 
-data ShMem = ShMem ShMemFunc ShMemState
+data ShMem = ShMem ShMemState
 
 type SystemState = ([Sprockell], [[Request]], [[Reply]], ShMem)
 

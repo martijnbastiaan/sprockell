@@ -85,6 +85,9 @@ decode sp instr  = case instr of
     Write j (Addr a)         -> nullcode {ioCode=IO_Write_Addr, addr=a, fromreg1=j}
     Write j (Deref p)        -> nullcode {ioCode=IO_Write_Ind, deref=p, fromreg1=j}
 
+    Put Char j               -> nullcode {ioCode=IO_Put_Char, fromreg1=j}
+    Put Int  j               -> nullcode {ioCode=IO_Put_Int, fromreg1=j}
+
     Start spr line           -> nullcode {powerCode=Power_Start, fromreg0=spr, fromreg1=line}
     Stop spr                 -> nullcode {powerCode=Power_Stop, fromreg0=spr}
 
@@ -156,12 +159,12 @@ pcUpd jmpCode jmpTarget pc cond fromind input immval = pc'
 sendOut :: IOCode -> (Int, Int, Int) -> Maybe SprockellOut
 sendOut ioCode (memaddr,fromind,value) = case ioCode of
                     IO_None        -> Nothing
-                    IO_Read_Addr   -> Just $ ReadReq  memaddr
-                    IO_Read_Ind    -> Just $ ReadReq  fromind
-                    IO_Write_Addr  -> Just $ WriteReq memaddr value
-                    IO_Write_Ind   -> Just $ WriteReq fromind value
-                    IO_Test_Addr   -> Just $ TestReq  memaddr
-                    IO_Test_Ind    -> Just $ TestReq  fromind
+                    IO_Read_Addr   -> Just $ ReadReq    memaddr
+                    IO_Read_Ind    -> Just $ ReadReq    fromind
+                    IO_Write_Addr  -> Just $ WriteReq   memaddr value
+                    IO_Write_Ind   -> Just $ WriteReq   fromind value
+                    IO_Put_Char    -> Just $ PutCharReq  value
+                    IO_Put_Int     -> Just $ PutIntReq value
 
 sendPower :: PowerCode -> (Int, Int) -> Maybe PowerOut
 sendPower powerCode (sprockell, instr) = case powerCode of
@@ -171,9 +174,9 @@ sendPower powerCode (sprockell, instr) = case powerCode of
 
 -- ======================================================================================
 -- Putting it all together
-sprockell ident instrs  SprState{..} input = sprstate
+sprockell instrs  SprState{..} input = sprstate
         where
-          MachCode{..}  = decode (regbank !! fromEnum SP) (instrs !! fromEnum PC)
+          MachCode{..}  = decode (regbank !! fromEnum SP) (instrs !! (regbank !! fromEnum PC))
 
           reg0          = regbank !! (fromEnum fromreg0)
           reg1          = regbank !! (fromEnum fromreg1)
@@ -181,11 +184,11 @@ sprockell ident instrs  SprState{..} input = sprstate
 
           derefAddr     = regbank !! (fromEnum deref)
 
-          loadValue     = load dmem ldCode (immvalue, addr, derefAddr, input)
+          loadValue     = load dmem ldCode ((trace ("HIER??" ++ show immvalue) immvalue), addr, derefAddr, input)
           nextPC        = pcUpd jmpCode jmpTarget (regbank !! fromEnum PC) reg0 derefAddr input immvalue
           
           regbank'      = regbank    <~ (fromEnum toreg, aluOutput)
-          regbank''     = regbank'   <~ (fromEnum loadreg, loadValue)
+          regbank''     = regbank'   <~ (fromEnum loadreg, immvalue)
           regbank'''    = regbank''  <~ (fromEnum Zero, 0)
           regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
 
