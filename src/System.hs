@@ -125,12 +125,14 @@ halted (Sprockell _ instrs SprState{regbank=regbank, active=active}) =
 -- ===========================================================================================
 -- ===========================================================================================
 sysSim :: (([Sprockell], t, t1, ShMem) -> IO ([Sprockell], t, t1, ShMem))
-     	-> ([Sprockell], t, t1, ShMem) -> Int -> IO [[Int]]
+     	-> ([Sprockell], t, t1, ShMem) -> IO [[Int]]
 
-sysSim sys sysState 10 = return []
---    | all halted (fst4 sysState) = return [trace "" print]
---  | otherwise   = do
-sysSim sys sysState n = do
+fst4 (a,_,_,_) = a
+snd3 (_,b,_)   = b
+
+sysSim sys sysState 
+    | all halted (fst4 sysState) = return []
+    | otherwise   = do
 	sysState' <- sys sysState
         let (sprs , spr2Mems ,mem2Sprs , mem ) = sysState
         let ShMem f m = mem
@@ -155,13 +157,9 @@ sysSim sys sysState n = do
                 tobit active3] ++ snd3 m
 
         putStrLn (show print)
-        x <- sysSim sys (sysState') (n+1)
+        x <- sysSim sys (sysState')
         return (print : x)
 
-
-fst3 (a,_,_) = a
-snd3 (_,b,_) = b
-thd3 (_,_,c) = c
 
 head'  []       = Nothing
 head' (x:xs)    = x
@@ -173,7 +171,7 @@ spr :: [Instruction] -> Int -> Sprockell
 spr instrs ident = Sprockell ident instrs (initstate ident)
 
 run :: Int -> [Instruction] -> IO [[Int]]
-run n instrs = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0) 0
+run n instrs = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0)
     where
         sprockells = map (spr instrs) [0..n]
         spr2Mems0  = replicate n []
