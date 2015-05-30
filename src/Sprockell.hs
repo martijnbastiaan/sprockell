@@ -184,11 +184,11 @@ sprockell instrs  SprState{..} input = sprstate
 
           derefAddr     = regbank !! (fromEnum deref)
 
-          loadValue     = load dmem ldCode ((trace ("HIER??" ++ show immvalue) immvalue), addr, derefAddr, input)
+          loadValue     = load dmem ldCode (immvalue, addr, derefAddr, input)
           nextPC        = pcUpd jmpCode jmpTarget (regbank !! fromEnum PC) reg0 derefAddr input immvalue
           
           regbank'      = regbank    <~ (fromEnum toreg, aluOutput)
-          regbank''     = regbank'   <~ (fromEnum loadreg, immvalue)
+          regbank''     = regbank'   <~ (fromEnum loadreg, loadValue)
           regbank'''    = regbank''  <~ (fromEnum Zero, 0)
           regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
 
