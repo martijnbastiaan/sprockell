@@ -74,8 +74,8 @@ decode sp instr  = case instr of
     Push r                   -> nullcode {stCode=StAddr, fromreg1=r, addr=sp-1, opCode=Decr, fromreg0=SP, toreg=SP}
     Pop r                    -> nullcode {ldCode=LdAddr, addr=sp, loadreg=r   , opCode=Incr, fromreg0=SP, toreg=SP}
 
-    Request (Addr a)         -> nullcode {ioCode=IO_Read_Addr, addr=a}
-    Request (Deref p)        -> nullcode {ioCode=IO_Read_Ind, deref=p}
+    Read (Addr a)            -> nullcode {ioCode=IO_Read_Addr, addr=a}
+    Read (Deref p)           -> nullcode {ioCode=IO_Read_Ind, deref=p}
 
     Receive r                -> nullcode {ldCode=LdInp, jmpCode=TWait, toreg=r}
 

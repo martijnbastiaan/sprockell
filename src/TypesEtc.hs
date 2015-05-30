@@ -56,7 +56,7 @@ data Instruction =
         | TestAndSet MemAddr    -- Test address for zero and sets it to one if it is. Returns 1 on success,
                     -- and 0 on failure. This is an atomic operation; it might therefore be
                     -- use to implement locks or synchronisation.
-        | Request MemAddr    -- Read from input and put value in regA
+        | Read MemAddr    -- Read from input and put value in regA
         | Receive Reg        -- Read on its way
         | Write Reg MemAddr    -- Write content of regA to output
 
