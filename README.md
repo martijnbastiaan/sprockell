@@ -15,6 +15,8 @@ See the [wiki](https://github.com/martijnbastiaan/sprockell/wiki).
 # Running
 Clone the repository, compile `System.hs` using `ghc` and run it from the command line. A (really) simple program runs and terminates.
 
+Of course, you can compile your own program:
+
 ```haskell
 module Program where
 
@@ -32,3 +34,8 @@ run 1 prog
 ```
 
 Where `1` is the amount of Sprockells you want to deploy.
+
+```bash
+ghc Program.hs
+./Program
+```
