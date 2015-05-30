@@ -37,9 +37,6 @@ prog = [
          , EndProg
          ]
 
-spr :: Int -> Sprockell
-spr ident = Sprockell ident sprockell prog (initstate ident)
-
 testSet :: [Int] -> Int -> (Int, Int)
 testSet mem addr | (mem!!addr) == 0 = (1, 1)
                  | otherwise        = (0, 0)
@@ -161,20 +158,17 @@ sysSim sys sysState n = do
 
 -- ===========================================================================================
 -- ===========================================================================================
+spr :: [Instruction] -> Int -> Sprockell
+spr instrs ident = Sprockell ident sprockell instrs (initstate ident)
 
-nn = 3
-
-sprockells       = map spr [0..nn]
-
-mem0             = replicate 6 0 :: [Int]
-
-spr2Mems0        = replicate nn []
-mem2Sprs0        = replicate nn []
-
-queue0           = []
-
-shMem0           = ShMem shMem (queue0,mem0,0)
-
-
-test = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0) 0
-main = test
+run :: Int -> [Instruction] -> IO [[Int]]
+run n instrs = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0) 0
+    where
+        sprockells = map (spr instrs) [0..n]
+        spr2Mems0  = replicate n []
+        mem2Sprs0  = replicate n []
+        mem0       = replicate 6 0 :: [Int]
+        queue0     = []
+        shMem0     = ShMem shMem (queue0,mem0,0)
+        
+main = run 3 prog
