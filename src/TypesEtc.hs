@@ -60,6 +60,7 @@ data Instruction =
         | Receive Reg        -- Read on its way
         | Write Reg MemAddr    -- Write content of regA to output
         | Put PutType Reg
+        | Get
 
         | Start Reg Reg        -- Start Sprockell `regA` at instruction `regB`. You can use this on
                     -- running Sprockells; keep in mind it only changes the program counter,
@@ -109,6 +110,7 @@ data IOCode = IONone
             | IOTest
             | IOPutChar
             | IOPutInt
+            | IOGet
             deriving (Eq,Show)
 
 data PowerCode = PowerNone
@@ -145,6 +147,7 @@ data SprockellOut
         | TestReq    Int            -- TestReq   adres
         | PutIntReq  Int
         | PutCharReq Int
+        | GetReq
         deriving (Eq,Show)
 
 data PowerOut = StartReq Int Int

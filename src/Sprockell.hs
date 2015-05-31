@@ -86,8 +86,12 @@ decode instr  = case instr of
     Write j (Addr a)         -> nullcode {ioCode=IOWrite, aguCode=AguImm, addrImm=a, inputY=j}
     Write j (Deref p)        -> nullcode {ioCode=IOWrite, aguCode=AguDeref, deref=p, inputY=j}
 
+    -- stdout
     Put Char j               -> nullcode {ioCode=IOPutChar, inputY=j}
     Put Int  j               -> nullcode {ioCode=IOPutInt, inputY=j}
+
+    -- stdin
+    Get                      -> nullcode {ioCode=IOGet}
 
     Start spr line           -> nullcode {powerCode=PowerStart, inputX=spr, inputY=line}
     Stop spr                 -> nullcode {powerCode=PowerStop, inputX=spr}

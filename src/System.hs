@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module System where
 
+import System.IO
 import Data.Char
 import Debug.Trace
 import Data.Maybe
@@ -31,12 +32,12 @@ randomiseQueue queue seq  = spr : (left ++ right)
         where
                 available = nub $ map fst queue
                 chosen = available !! ((randomInts !! seq) `mod` (length available))
-                --chosen' = trace ("\navail: " ++ show available ++ ", chosen: " ++ show chosen) chosen
                 chosenIndex = fst $ head $ filter (\(i, (sprNr, sprOut)) -> sprNr ==  chosen) (zip [0..] queue)
                 (left, spr, right) = slice chosenIndex queue
 
 newToQueue :: [Request] -> [(Int, SprockellOut)]
 newToQueue inps = map (\(i,r) -> (i, fromJust r))  $  filter ((/=Nothing).snd)  $  zip [0..] inps
+
 
 -- ===========================================================================================
 -- ===========================================================================================
@@ -45,10 +46,16 @@ newToQueue inps = map (\(i,r) -> (i, fromJust r))  $  filter ((/=Nothing).snd)  
 --        - its state conists of the input queue and its actual memory
 --        - it handles exactly one request at a time
 --        - it has a sequence number to simulate randomness
+ifReadyDo :: IO Char -> IO (Maybe Int)
+ifReadyDo x = hReady stdin >>= f
+   where f True  = x >>= return . (Just . ord)
+         f False = return Nothing
+
 shMem ([]   ,mem,seq) inps = return ((newToQueue inps,mem,seq+1), (replicate (length inps) Nothing))
 shMem (queue,mem,seq) inps = do
           let defaultOuts  = replicate (length inps) Nothing
           let queue'       = (randomiseQueue queue seq) ++ (newToQueue inps)
+          inputChar       <- ifReadyDo (hLookAhead stdin)
           (mem',outps)    <- case head queue' of
                       -- Memory
                       (i, ReadReq  a)     -> return (mem, defaultOuts <~ (i, Just (mem!!a)) )
@@ -58,6 +65,7 @@ shMem (queue,mem,seq) inps = do
                       -- Stdout
                       (i, PutIntReq v)    -> putChar (intToDigit v) >> return (mem, defaultOuts)
                       (i, PutCharReq v)   -> putChar (chr v) >> return (mem, defaultOuts)
+                      (i, GetReq)         -> return (mem, defaultOuts <~ (i, Just $ fromMaybe (-1) inputChar))
           return ((tail queue',mem',seq+1), outps)
 
 
