@@ -134,8 +134,8 @@ runDebug :: (SystemState -> IO ()) -> Int -> [Instruction] -> IO ()
 runDebug debugFunc n instrs = sysSim debugFunc (sprockells, spr2Mems0, mem2Sprs0, shMem0)
     where
         sprockells = map (spr instrs) [0..n]
-        spr2Mems0  = replicate n []
-        mem2Sprs0  = replicate n []
+        spr2Mems0  = replicate n (replicate 2 Nothing)
+        mem2Sprs0  = replicate n (replicate 2 Nothing)
         mem0       = replicate 6 0 :: [Int]
         queue0     = []
         shMem0     = ShMem (queue0,mem0,0)
