@@ -81,8 +81,7 @@ shMem (queue,mem,seq) inps = do
 --        - a list of buffers from shared memory to the sprockells
 --        - the shared memory
 system :: SystemState -> IO SystemState
-system (sprs, buffersS2M, buffersM2S, shmem) = do 
-                  let (ShMem st)                    = shmem
+system (sprs, buffersS2M, buffersM2S, ShMem st) = do 
                   (shmem',replies)                  <- shMem st $ map head buffersS2M
                   let (sprs' ,sprOutps)             = unzip $ zipWith execS sprs (map head buffersM2S) 
                   let buffersS2M'                   = zipWith (<+) buffersS2M sprOutps
@@ -93,15 +92,15 @@ system (sprs, buffersS2M, buffersM2S, shmem) = do
 -- ===========================================================================================
 -- Determine if sprockells have reached "EndProg". (Of course, this couldn't exist in hardware
 -- but we need to somehow stop the simulation if all sprockells are 'done'.)
-halted :: Sprockell -> Bool
-halted (Sprockell _ instrs SprState{regbank=regbank}) = (instrs !! (regbank !! fromEnum PC)) == EndProg
+halted' :: Sprockell -> Bool
+halted' (Sprockell _ _ SprState{..}) = halted
 
 -- ===========================================================================================
 -- ===========================================================================================
 -- "Simulates" sprockells by recursively calling them over and over again
 simulate :: (SystemState -> String) -> SystemState -> IO ()
 simulate debugFunc sysState@(sprs, _, _, _) 
-    | all halted sprs = return ()
+    | all halted' sprs = return ()
     | otherwise   = do
        	sysState' <- system sysState
         putStr (debugFunc sysState')

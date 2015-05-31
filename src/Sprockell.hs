@@ -22,7 +22,7 @@ import TypesEtc
 dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
 
 
-initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0, active  = ident == 0 }
+initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0}
     where
         regvalues = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
         regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
@@ -42,6 +42,7 @@ nullcode = MachCode
         , loadReg     = Zero
         , addrImm     = 0
         , deref       = Zero
+        , sHalted     = False
         }
 
 {-------------------------------------------------------------
@@ -92,7 +93,7 @@ decode instr  = case instr of
     -- stdin
     Get                      -> nullcode {ioCode=IOGet}
 
-    EndProg                  -> nullcode {pcCode=PCJump TRel, immValue=0}
+    EndProg                  -> nullcode {pcCode=PCJump TRel, immValue=0, sHalted=True}
     Debug _                  -> nullcode
 
 
@@ -185,7 +186,7 @@ sprockell instrs  SprState{..} inputFifo = (sprState, output) where
         regbank'''    = regbank''  <~ (fromEnum Zero, 0)
         regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
 
-        sprState      = SprState {dmem=dmem',regbank=regbank'''',active=True}
+        sprState      = SprState {dmem=dmem',regbank=regbank'''',halted=sHalted}
 
         -- Managed by System
         output        = sendOut ioCode address regY

@@ -127,12 +127,13 @@ data MachCode = MachCode
        , addrImm   :: Int          -- address constant
        , deref     :: Reg          -- address register
        , pcCode    :: PCCode       -- next PC determination
+       , sHalted   :: Bool         -- set sprockell active / halted
        } deriving (Eq,Show)
 
 data SprState = SprState
         { regbank   :: [Int]        -- register bank
         , dmem      :: [Int]        -- local data memory
-        , active    :: Bool
+        , halted    :: Bool
         }
 
 data SprockellOut 
