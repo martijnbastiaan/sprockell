@@ -2,9 +2,6 @@
 
 module TypesEtc where
 
-import Data.List
-import Debug.Trace
-
 -- ==========================================================================================================
 -- Sprockell instructions
 data Reg = Zero
@@ -16,16 +13,16 @@ data Reg = Zero
          | RegC
          | RegD
          | RegE
-         deriving (Eq,Show,Ord,Enum,Bounded)
+         deriving (Eq,Show,Read,Ord,Enum,Bounded)
 
 data MemAddr = Addr Int
              | Deref Reg
-             deriving (Eq,Show)
+             deriving (Eq,Show,Read)
 
 data Target = Abs Int
             | Rel Int
             | Ind Reg
-            deriving (Eq,Show)
+            deriving (Eq,Show,Read)
 
 data Operator = Add  | Sub | Mul  | Div | Mod 
               -- comparision operations
@@ -34,10 +31,10 @@ data Operator = Add  | Sub | Mul  | Div | Mod
               | And | Or | Xor | LShift | RShift
               -- Internal
               | Decr | Incr
-                 deriving (Eq,Show)
+              deriving (Eq,Show,Read)
 
 data PutType = Int | Char
-                 deriving (Eq,Show)
+             deriving (Eq,Show,Read)
 
 data Instruction = 
           -- Compute opCode r0 r1 r2: go to "alu",
@@ -75,99 +72,87 @@ data Instruction =
                     -- this instruction, the simulation will halt.
         | Nop            -- "No operation"
         | Debug String
-        deriving (Eq,Show)
+        deriving (Eq,Show,Read)
 
 
 -- ==========================================================================================================
 -- Internal Sprockell data structures
+
+data PCCode = PCNext
+            | PCJump TargetCode
+            | PCBranch TargetCode
+            | PCWait
+            deriving (Eq,Show)
 
 data TargetCode = TAbs
                 | TRel
                 | TInd
                 deriving (Eq,Show)
 
+data AguCode = AguImm
+             | AguDeref
+             | AguDown
+             deriving (Eq,Show)
+
 data LdCode = LdImm
-            | LdAddr
-            | LdInd
+            | LdMem
             | LdInp 
             deriving (Eq,Show)
 
-data StCode = NoStore
-            | StAddr
-            | StDeref
+data StCode = StNone
+            | StMem
             deriving (Eq,Show)
 
-data JmpCode = TNext
-             | TJump
-             | TBranch
-             | TWait
-             deriving (Eq,Show)
-
-data IOCode = IO_None
-            | IO_Read_Addr
-            | IO_Read_Ind
-            | IO_Write_Addr
-            | IO_Write_Ind
-            | IO_Test_Addr
-            | IO_Test_Ind
-            | IO_Put_Char
-            | IO_Put_Int
+data IOCode = IONone
+            | IORead
+            | IOWrite
+            | IOTest
+            | IOPutChar
+            | IOPutInt
             deriving (Eq,Show)
 
-data PowerCode = Power_None
-               | Power_Start
-               | Power_Stop
+data PowerCode = PowerNone
+               | PowerStart
+               | PowerStop
                deriving (Eq,Show)
 
-data MachCode = MachCode { 
-         ldCode    :: LdCode       -- 0/1: load from dmem to rbank?
-       , stCode    :: StCode       -- storeCode
-       , opCode    :: Operator -- opCode
-       , ioCode    :: IOCode    -- code whether to send a read or werite message
-       , immvalue  :: Int          -- value from Immediate
-       , fromreg0  :: Reg          -- ibid, first parameter of Compute
-       , fromreg1  :: Reg          -- ibid, second parameter of Compute
-       , toreg     :: Reg          -- ibid, third parameter of Compute
-       , loadreg   :: Reg          -- where to load result is writen to
-       , addr      :: Int          -- address in dmem
-       , deref     :: Reg
-       , jmpTarget :: TargetCode
-       , jmpCode   :: JmpCode      -- 0/1: indicates a jump
-       , powerCode :: PowerCode     -- indicates whether another Sprockell core should be started
+data MachCode = MachCode
+       { ldCode    :: LdCode       -- source of load results
+       , stCode    :: StCode       -- store command
+       , aguCode   :: AguCode      -- address calculation 
+       , aluCode   :: Operator     -- arithmetic operation
+       , ioCode    :: IOCode       -- communication with the rest of the system
+       , immValue  :: Int          -- value from Immediate
+       , inputX    :: Reg          -- first input register
+       , inputY    :: Reg          -- seconde input register
+       , result    :: Reg          -- alu result register
+       , loadReg   :: Reg          -- where to load results are written to
+       , addrImm   :: Int          -- address constant
+       , deref     :: Reg          -- address register
+       , pcCode    :: PCCode       -- next PC determination
+       , powerCode :: PowerCode    -- indicates whether another Sprockell core should be started
+       } deriving (Eq,Show)
+
+data SprState = SprState
+        { regbank   :: [Int]        -- register bank
+        , dmem      :: [Int]        -- local data memory
+        , active    :: Bool
         }
-            deriving (Eq,Show)
 
+data SprockellOut 
+        = ReadReq    Int            -- ReadReq   adres
+        | WriteReq   Int Int        -- WriteReq  adres value
+        | TestReq    Int            -- TestReq   adres
+        | PutIntReq  Int
+        | PutCharReq Int
+        deriving (Eq,Show)
 
-
-data SprState = SprState {
-                    regbank   :: [Int]        -- register bank
-                  , dmem      :: [Int]        -- main memory, data memory
-                  , active    :: Bool
-                  }
-
-              | RtrState RtrMessage
-                    deriving (Eq,Show)
-
-
-data SprockellOut = 
-            ReadReq    Int            -- ReadReq   adres
-          | WriteReq   Int Int        -- WriteReq  adres value
-          | TestReq    Int            -- TestReq   adres
-          | PutIntReq  Int
-          | PutCharReq Int
-             deriving (Eq,Show)
-
-data PowerOut =
-                StartReq Int Int
+data PowerOut = StartReq Int Int
               | StopReq Int 
-                 deriving (Eq,Show)
+              deriving (Eq,Show)
 
-type RtrMessage    = Maybe (Int,Int)        -- Just (m,a): m is nr of processor, a is content of message
-
-type Stack       = [Int]
-
-type Request     = Maybe SprockellOut
-type Reply     = Maybe Int
+type Request = Maybe SprockellOut
+type Reply = Maybe Int
 
 data Sprockell = Sprockell Int [Instruction] SprState
 

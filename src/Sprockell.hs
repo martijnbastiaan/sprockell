@@ -3,6 +3,7 @@
 module Sprockell where
 
 import Data.Bits
+import Data.Maybe
 import Debug.Trace
 import TypesEtc
 
@@ -27,178 +28,174 @@ initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0, ac
         regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
 
 
-nullcode    = MachCode {
-                 ldCode      = LdImm
-               , stCode      = NoStore
-               , opCode      = Or
-               , jmpCode     = TNext
-               , ioCode      = IO_None
-               , jmpTarget   = TAbs
-               , immvalue    = 0
-               , fromreg0    = Zero
-               , fromreg1    = Zero
-               , toreg       = Zero
-               , loadreg     = Zero
-               , addr        = 0
-               , deref       = Zero
-               , powerCode   = Power_None
-               }
+nullcode = MachCode
+        { ldCode      = LdImm
+        , stCode      = StNone
+        , aguCode     = AguImm
+        , aluCode     = Or
+        , pcCode      = PCNext
+        , ioCode      = IONone
+        , immValue    = 0
+        , inputX      = Zero
+        , inputY      = Zero
+        , result      = Zero
+        , loadReg     = Zero
+        , addrImm     = 0
+        , deref       = Zero
+        , powerCode   = PowerNone
+        }
 
 {-------------------------------------------------------------
 | The actual Sprockell
 -------------------------------------------------------------}
 
 -- ============================
-decode :: Int -> Instruction -> MachCode
-decode sp instr  = case instr of
+decode :: Instruction -> MachCode
+decode instr  = case instr of
     Nop                      -> nullcode
 
-    Compute c r0 r1 r2       -> nullcode {opCode=c, fromreg0=r0, fromreg1=r1, toreg=r2}
+    Compute c r0 r1 r2       -> nullcode {aluCode=c, inputX=r0, inputY=r1, result=r2}
     
-    Branch r0 (Abs n)        -> nullcode {jmpCode=TBranch, jmpTarget=TAbs, immvalue=n, fromreg0=r0}
-    Branch r0 (Rel n)        -> nullcode {jmpCode=TBranch, jmpTarget=TRel, immvalue=n, fromreg0=r0}
-    Branch r0 (Ind i)        -> nullcode {jmpCode=TBranch, jmpTarget=TInd, deref=i   , fromreg0=r0}
+    Branch r0 (Abs n)        -> nullcode {pcCode=PCBranch TAbs, immValue=n, inputX=r0}
+    Branch r0 (Rel n)        -> nullcode {pcCode=PCBranch TRel, immValue=n, inputX=r0}
+    Branch r0 (Ind i)        -> nullcode {pcCode=PCBranch TInd, deref=i   , inputX=r0}
 
-    Jump   (Abs n)           -> nullcode {jmpCode=TJump, jmpTarget=TAbs, immvalue=n}
-    Jump   (Rel n)           -> nullcode {jmpCode=TJump, jmpTarget=TRel, immvalue=n}
-    Jump   (Ind r)           -> nullcode {jmpCode=TJump, jmpTarget=TInd, deref=r}
+    Jump   (Abs n)           -> nullcode {pcCode=PCJump TAbs, immValue=n}
+    Jump   (Rel n)           -> nullcode {pcCode=PCJump TRel, immValue=n}
+    Jump   (Ind r)           -> nullcode {pcCode=PCJump TInd, deref=r}
 
-    Const n r                -> nullcode {ldCode=LdImm, immvalue=n, loadreg=r}
+    Const n r                -> nullcode {ldCode=LdImm, immValue=n, loadReg=r}
 
-    Load  (Addr a)  r        -> nullcode {ldCode=LdAddr, addr=a, loadreg=r}
-    Load  (Deref p) r        -> nullcode {ldCode=LdInd, deref=p, loadreg=r}
+    Load  (Addr a)  r        -> nullcode {ldCode=LdMem, aguCode=AguImm, addrImm=a, loadReg=r}
+    Load  (Deref p) r        -> nullcode {ldCode=LdMem, aguCode=AguDeref, deref=p, loadReg=r}
 
-    Store r (Addr a)         -> nullcode {stCode=StAddr, fromreg1=r, addr=a}
-    Store r (Deref p)        -> nullcode {stCode=StDeref, fromreg1=r, deref=p}
+    Store r (Addr a)         -> nullcode {stCode=StMem, inputY=r, aguCode=AguImm, addrImm=a}
+    Store r (Deref p)        -> nullcode {stCode=StMem, inputY=r, aguCode=AguDeref, deref=p}
 
-    Push r                   -> nullcode {stCode=StAddr, fromreg1=r, addr=sp-1, opCode=Decr, fromreg0=SP, toreg=SP}
-    Pop r                    -> nullcode {ldCode=LdAddr, addr=sp, loadreg=r   , opCode=Incr, fromreg0=SP, toreg=SP}
+    Push r                   -> nullcode {stCode=StMem, inputY=r, aguCode=AguDown, deref=SP, aluCode=Decr, inputX=SP, result=SP}
+    Pop r                    -> nullcode {ldCode=LdMem, loadReg=r, aguCode=AguDeref, deref=SP, aluCode=Incr, inputX=SP, result=SP}
 
-    Read (Addr a)            -> nullcode {ioCode=IO_Read_Addr, addr=a}
-    Read (Deref p)           -> nullcode {ioCode=IO_Read_Ind, deref=p}
+    Read (Addr a)            -> nullcode {ioCode=IORead, aguCode=AguImm, addrImm=a}
+    Read (Deref p)           -> nullcode {ioCode=IORead, aguCode=AguDeref, deref=p}
 
-    Receive r                -> nullcode {ldCode=LdInp, jmpCode=TWait, toreg=r}
+    Receive r                -> nullcode {ldCode=LdInp, pcCode=PCWait, loadReg=r}
 
-    TestAndSet (Addr a)      -> nullcode {ioCode=IO_Test_Addr, addr=a}
-    TestAndSet (Deref p)     -> nullcode {ioCode=IO_Test_Ind, deref=p}
+    TestAndSet (Addr a)      -> nullcode {ioCode=IOTest, aguCode=AguImm, addrImm=a}
+    TestAndSet (Deref p)     -> nullcode {ioCode=IOTest, aguCode=AguDeref, deref=p}
 
-    Write j (Addr a)         -> nullcode {ioCode=IO_Write_Addr, addr=a, fromreg1=j}
-    Write j (Deref p)        -> nullcode {ioCode=IO_Write_Ind, deref=p, fromreg1=j}
+    Write j (Addr a)         -> nullcode {ioCode=IOWrite, aguCode=AguImm, addrImm=a, inputY=j}
+    Write j (Deref p)        -> nullcode {ioCode=IOWrite, aguCode=AguDeref, deref=p, inputY=j}
 
-    Put Char j               -> nullcode {ioCode=IO_Put_Char, fromreg1=j}
-    Put Int  j               -> nullcode {ioCode=IO_Put_Int, fromreg1=j}
+    Put Char j               -> nullcode {ioCode=IOPutChar, inputY=j}
+    Put Int  j               -> nullcode {ioCode=IOPutInt, inputY=j}
 
-    Start spr line           -> nullcode {powerCode=Power_Start, fromreg0=spr, fromreg1=line}
-    Stop spr                 -> nullcode {powerCode=Power_Stop, fromreg0=spr}
+    Start spr line           -> nullcode {powerCode=PowerStart, inputX=spr, inputY=line}
+    Stop spr                 -> nullcode {powerCode=PowerStop, inputX=spr}
 
-    EndProg                  -> nullcode{jmpCode=TWait}
+    EndProg                  -> nullcode {pcCode=PCJump TRel, immValue=0}
     Debug _                  -> nullcode
 
 
 -- ============================
 alu :: Operator -> Int -> Int -> Int
 alu opCode x y = case opCode of
-            Incr   -> x + 1
-            Decr   -> x - 1
-            Add    -> x + y
-            Sub    -> x - y
-            Mul    -> x * y
-            Div    -> x `div` y
-            Mod    -> x `mod` y
-            Equal  -> tobit (x == y)
-            NEq    -> tobit (x /= y)
-            Gt     -> tobit (x > y)
-            GtE    -> tobit (x >= y)
-            Lt     -> tobit (x < y)
-            LtE    -> tobit (x <= y)
-            And    -> x .&. y
-            Or     -> x .|. y
-            LShift -> shiftL x y
-            RShift -> shiftR x y
-            Xor    -> x `xor` y
+        Incr   -> x + 1
+        Decr   -> x - 1
+        Add    -> x + y
+        Sub    -> x - y
+        Mul    -> x * y
+        Div    -> x `div` y
+        Mod    -> x `mod` y
+        Equal  -> tobit (x == y)
+        NEq    -> tobit (x /= y)
+        Gt     -> tobit (x > y)
+        GtE    -> tobit (x >= y)
+        Lt     -> tobit (x < y)
+        LtE    -> tobit (x <= y)
+        And    -> x .&. y
+        Or     -> x .|. y
+        LShift -> shiftL x y
+        RShift -> shiftR x y
+        Xor    -> x `xor` y
     where
         tobit True  = 1
         tobit False = 0
 
 -- ============================
-load :: [Int] -> LdCode -> (Int, Int, Int, Maybe Int) -> Int
-load dmem ldCode (immvalue, addr, derefAddr, input) = case ldCode of
-        LdImm   -> immvalue
-        LdAddr  -> dmem !! addr
-        LdInd   -> dmem !! derefAddr
-        LdInp   -> case input of
-                        Just x  -> x
-                        Nothing -> 0
+agu :: AguCode -> Int -> Int -> Int
+agu aguCode addr derefAddr = case aguCode of
+        AguImm   -> addr
+        AguDeref -> derefAddr
+        AguDown  -> derefAddr - 1
+        
+-- ============================
+load :: [Int] -> LdCode -> (Int, Int, Maybe Int) -> Int
+load dmem ldCode (immval, address, input) = case ldCode of
+        LdImm -> immval
+        LdMem -> dmem !! address
+        LdInp -> fromMaybe 0 input
 
 -- ============================
-store :: [Int] -> StCode -> (Int, Int,Int) -> [Int]
-store dmem stCode (addr, derefAddr, x) = case stCode of
-        NoStore -> dmem
-        StAddr  -> dmem <~ (addr, x)
-        StDeref -> dmem <~ (derefAddr, x)
-
+store :: [Int] -> StCode -> Int -> Int -> [Int]
+store dmem stCode address value = case stCode of
+        StNone -> dmem
+        StMem  -> dmem <~ (address, value)
 
 -- ============================
-pcUpd :: JmpCode -> TargetCode -> Int -> Int -> Int -> Maybe a -> Int -> Int
-pcUpd jmpCode jmpTarget pc cond fromind input immval = pc'
-        where
-            pc' = case jmpCode of
-                   TNext   -> succ pc
-                   TJump   -> target
-                   TBranch -> if cond /= 0 then target else succ pc
-                   TWait   -> case input of
-                             Just _  -> succ pc
-                             Nothing -> pc
-
-            target = case jmpTarget of
-                        TAbs  -> immval
-                        TRel  -> pc + immval
-                        TInd  -> fromind
+pcUpd :: PCCode -> Int -> Int -> Int -> Maybe a -> Int -> Int
+pcUpd pcCode pc cond fromind input immval = case pcCode of
+        PCNext     -> succ pc
+        PCJump   t -> target t
+        PCBranch t -> if cond /= 0 then target t else succ pc
+        PCWait     -> if isJust input then succ pc else pc
+    where target t = case t of
+                TAbs  -> immval
+                TRel  -> pc + immval
+                TInd  -> fromind
 
 -- ============================
-sendOut :: IOCode -> (Int, Int, Int) -> Maybe SprockellOut
-sendOut ioCode (memaddr,fromind,value) = case ioCode of
-                    IO_None        -> Nothing
-                    IO_Read_Addr   -> Just $ ReadReq    memaddr
-                    IO_Read_Ind    -> Just $ ReadReq    fromind
-                    IO_Write_Addr  -> Just $ WriteReq   memaddr value
-                    IO_Write_Ind   -> Just $ WriteReq   fromind value
-                    IO_Put_Char    -> Just $ PutCharReq  value
-                    IO_Put_Int     -> Just $ PutIntReq value
+sendOut :: IOCode -> Int -> Int -> Maybe SprockellOut
+sendOut ioCode address value = case ioCode of
+        IONone    -> Nothing
+        IORead    -> Just $ ReadReq address
+        IOWrite   -> Just $ WriteReq address value
+        IOPutChar -> Just $ PutCharReq value
+        IOPutInt  -> Just $ PutIntReq value
 
 sendPower :: PowerCode -> (Int, Int) -> Maybe PowerOut
 sendPower powerCode (sprockell, instr) = case powerCode of
-                    Power_None  -> Nothing
-                    Power_Start -> Just $ StartReq sprockell instr
-                    Power_Stop  -> Just $ StopReq sprockell
+        PowerNone  -> Nothing
+        PowerStart -> Just $ StartReq sprockell instr
+        PowerStop  -> Just $ StopReq sprockell
 
 -- ======================================================================================
 -- Putting it all together
-sprockell instrs  SprState{..} input = sprstate
-        where
-          MachCode{..}  = decode (regbank !! fromEnum SP) (instrs !! (regbank !! fromEnum PC))
+sprockell instrs  SprState{..} inputFifo = (sprState, output, power) where
+        pc            = regbank !! fromEnum PC
+        MachCode{..}  = decode (instrs !! pc)
 
-          reg0          = regbank !! (fromEnum fromreg0)
-          reg1          = regbank !! (fromEnum fromreg1)
-          aluOutput     = alu opCode reg0 reg1
+        regX          = regbank !! fromEnum inputX
+        regY          = regbank !! fromEnum inputY
+        aluOutput     = alu aluCode regX regY
 
-          derefAddr     = regbank !! (fromEnum deref)
+        regAddr       = regbank !! fromEnum deref
+        address       = agu aguCode addrImm regAddr
 
-          loadValue     = load dmem ldCode (immvalue, addr, derefAddr, input)
-          nextPC        = pcUpd jmpCode jmpTarget (regbank !! fromEnum PC) reg0 derefAddr input immvalue
-          
-          regbank'      = regbank    <~ (fromEnum toreg, aluOutput)
-          regbank''     = regbank'   <~ (fromEnum loadreg, loadValue)
-          regbank'''    = regbank''  <~ (fromEnum Zero, 0)
-          regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
+        loadValue     = load dmem ldCode (immValue, address, inputFifo)
+        dmem'         = store dmem stCode address regY
 
-          dmem'         = store dmem stCode (addr, derefAddr, reg1)
+        nextPC        = pcUpd pcCode pc regX regAddr inputFifo immValue
 
-          -- Managed by System
-          output        = sendOut ioCode (addr, derefAddr, reg1)
-          power         = sendPower powerCode (reg0, reg1)
+        regbank'      = regbank    <~ (fromEnum result, aluOutput)
+        regbank''     = regbank'   <~ (fromEnum loadReg, loadValue)
+        regbank'''    = regbank''  <~ (fromEnum Zero, 0)
+        regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
 
-          sprstate      = (SprState {dmem=dmem',regbank=regbank'''',active=True}, output, power)
+        sprState      = SprState {dmem=dmem',regbank=regbank'''',active=True}
+
+        -- Managed by System
+        output        = sendOut ioCode address regY
+        power         = sendPower powerCode (regX, regY)
 
 -- ==========================================================================================================
 
