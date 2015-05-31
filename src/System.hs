@@ -105,7 +105,7 @@ simulate debugFunc sysState@(sprs, _, _, _, _, _)
 -- ===========================================================================================
 -- Initialise SystemState for N sprockells
 initSystemState :: Int -> [Instruction] -> SystemState
-initSystemState n instrs = (sprockells, buffer, buffer, [], sharedMemory, 0)
+initSystemState n instrs = (sprockells, buffer, buffer, [], sharedMemory, randomStart)
      where
         sprockells   = [Sprockell n instrs (initstate n) | n <- [0..n]]
         buffer       = replicate n (replicate bufferSize Nothing)
