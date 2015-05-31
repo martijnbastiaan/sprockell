@@ -62,19 +62,18 @@ catRequests [] = []
 catRequests ((_, Nothing):reqs)  =          catRequests reqs
 catRequests ((n, Just s):reqs)   = (n, s) : catRequests reqs
 
-processRequest :: [Int] -> (Int, SprockellOut) -> IO ([Int], (Int, Maybe Int))
-processRequest mem (spr, out) = do
-            let ioDevice  = mapAddress (addr out)
-            (mem', reply) <- ioDevice mem out
+processRequest :: [(Int, SprockellOut)] -> [Int] -> IO ([Int], (Int, Maybe Int))
+processRequest [] mem    = return (mem, (0, Nothing))
+processRequest ((spr, out):queue) mem = do
+            let ioDevice   = mapAddress (addr out)
+            (mem', reply)  <- ioDevice mem out
             return (mem', (spr, reply))
 
 system :: SystemState -> IO SystemState
 system (sprs, buffersS2M, buffersM2S, queue, mem, cycle) = do 
                   let newToQueue        = shuffle cycle $ zip [0..length sprs] (map head buffersS2M)
                   let queue'            = queue ++ (catRequests $ newToQueue)
-                  (mem', reply)         <- if   null queue' 
-                                           then return (mem, (0, Nothing))
-                                           else processRequest mem $ head queue'
+                  (mem', reply)         <- processRequest queue' mem
                   let replies           = (replicate (length sprs) Nothing) <~ reply
                   let (sprs', sprOutps) = unzip $ zipWith execS sprs (map head buffersM2S) 
 
