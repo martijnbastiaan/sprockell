@@ -40,7 +40,7 @@ ghc Program.hs
 ./Program
 ```
 
-(Of course, this simple program doesn't produce any output. You'd need the `Put` instruction for that.)
+(Of course, this simple program doesn't produce any output. You'd need the use stdout for that.)
 
 # Debugging
 See the wiki on [debugging](https://github.com/martijnbastiaan/sprockell/wiki/debugging).
