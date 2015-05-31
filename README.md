@@ -4,6 +4,7 @@ Sprockell is a **S**imple **Pr**ocessor in Has**kell**. It was originally writte
 # Features
 * Simple arithmetic
 * Simple I/O (stdin / stdout)
+* Memory mapped I/O
 * Branches / jumps
 * Stack
 * Local memory
