@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+module System where
 
 import Data.Char
 import Debug.Trace
@@ -15,35 +16,6 @@ execS spr inp
             where
                 (Sprockell ident instrs sprState) = spr
                 (sprState',outp,powerreq) = sprockell instrs sprState inp
-
-prog = [ 
-           Const 78 RegA 
-         , Put Char RegA
-         , Nop
-         , Nop
-         , Nop
-         , Nop
-         , Nop
-         , Nop
-         , Nop
-         , Nop
-{--         , Start RegA RegB
-         , Const 2 RegA 
-         , Const 10 RegB 
-         , Start RegA RegB
-         , Const 15 RegA
-         , Jump (Abs 11)
-        -- For Sprockell 1
-         , Const 17 RegA
-         , Jump (Abs 11)
-        -- For Sprockell 2
-         , Const 19 RegA
-        -- From here for both Sprockells
-         , Write RegA (Addr 0)
-         , Request (Addr 1)
-         , Receive RegA-}
-         , EndProg
-         ]
 
 testSet :: [Int] -> Int -> Int
 testSet mem addr | (mem!!addr) == 0 = 1
@@ -178,5 +150,3 @@ run n instrs = sysSim system (sprockells, spr2Mems0, mem2Sprs0, shMem0)
         mem0       = replicate 6 0 :: [Int]
         queue0     = []
         shMem0     = ShMem (queue0,mem0,0)
-        
-main = run 1 prog
