@@ -11,6 +11,12 @@ import TypesEtc
 import Sprockell
 import PseudoRandom
 
+-- Constants
+bufferSize  = 2 -- bufferSize >  0
+memorySize  = 6 -- memorySize >= 0
+randomStart = 0 -- Change for different random behaviour
+
+
 -- execS prevents executing Sprockells which have active=false set.
 execS spr inp = (Sprockell ident instrs sprState', outp)
             where
@@ -75,52 +81,44 @@ shMem (queue,mem,seq) inps = do
 --        - a list of buffers from shared memory to the sprockells
 --        - the shared memory
 system :: SystemState -> IO SystemState
-system (sprs, buffersS2M,buffersM2S,shmem) = do 
+system (sprs, buffersS2M, buffersM2S, shmem) = do 
                   let (ShMem st)                    = shmem
-                  (shmem',replies)                  <- shMem st $ map head' buffersS2M
-                  let (sprs' ,sprOutps)             = unzip $ zipWith execS sprs (map head' buffersM2S) 
+                  (shmem',replies)                  <- shMem st $ map head buffersS2M
+                  let (sprs' ,sprOutps)             = unzip $ zipWith execS sprs (map head buffersM2S) 
                   let buffersS2M'                   = zipWith (<+) buffersS2M sprOutps
                   let buffersM2S'                   = zipWith (<+) buffersM2S replies
                   return (sprs', buffersS2M',buffersM2S', ShMem shmem')
 
 -- ===========================================================================================
 -- ===========================================================================================
--- Determine if sprockells have reached "EndProg"
+-- Determine if sprockells have reached "EndProg". (Of course, this couldn't exist in hardware
+-- but we need to somehow stop the simulation if all sprockells are 'done'.)
 halted :: Sprockell -> Bool
-halted (Sprockell _ instrs SprState{regbank=regbank, active=active}) =
-    case (instrs !! (regbank !! fromEnum PC)) of
-        EndProg -> True
-        _       -> not active
-
+halted (Sprockell _ instrs SprState{regbank=regbank}) = (instrs !! (regbank !! fromEnum PC)) == EndProg
 
 -- ===========================================================================================
 -- ===========================================================================================
-sysSim :: (SystemState -> String) -> SystemState -> IO ()
-sysSim debugFunc sysState@(sprs, _, _, _) 
+-- "Simulates" sprockells by recursively calling them over and over again
+simulate :: (SystemState -> String) -> SystemState -> IO ()
+simulate debugFunc sysState@(sprs, _, _, _) 
     | all halted sprs = return ()
     | otherwise   = do
        	sysState' <- system sysState
         putStr (debugFunc sysState')
-        sysSim debugFunc sysState'
-        
-head'  []       = Nothing
-head' (x:xs)    = x
+        simulate debugFunc sysState'
 
 -- ===========================================================================================
 -- ===========================================================================================
-spr :: [Instruction] -> Int -> Sprockell
-spr instrs ident = Sprockell ident instrs (initstate ident)
-
+-- Initialise SystemState for N sprockells
+initSystemState :: Int -> [Instruction] -> SystemState
+initSystemState n instrs = (sprockells, buffer, buffer, sharedMemory)
+     where
+        sprockells   = [Sprockell n instrs (initstate n) | n <- [0..n]]
+        buffer       = replicate n (replicate bufferSize Nothing)
+        sharedMemory = ShMem ([], replicate memorySize 0 :: [Int], randomStart)
+ 
 run :: Int -> [Instruction] -> IO ()
 run = runDebug (const "")
 
 runDebug :: (SystemState -> String) -> Int -> [Instruction] -> IO ()
-runDebug debugFunc n instrs = sysSim debugFunc (sprockells, spr2Mems0, mem2Sprs0, shMem0)
-    where
-        sprockells = map (spr instrs) [0..n]
-        spr2Mems0  = replicate n (replicate 2 Nothing)
-        mem2Sprs0  = replicate n (replicate 2 Nothing)
-        mem0       = replicate 6 0 :: [Int]
-        queue0     = []
-        shMem0     = ShMem (queue0,mem0,0)
-
+runDebug debugFunc n instrs = simulate debugFunc (initSystemState n instrs)
