@@ -166,9 +166,3 @@ data ShMem = ShMem ShMemState
 
 type SystemState = ([Sprockell], [[Request]], [[Reply]], ShMem)
 
-
--- ==========================================================================================================
--- Clock for simulation of the Sprockell
-
-data Tick = Tick deriving (Eq,Show)
-clock = Tick : clock

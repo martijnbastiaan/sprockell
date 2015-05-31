@@ -100,6 +100,9 @@ decode instr  = case instr of
     Debug _                  -> nullcode
 
 
+tobit True  = 1
+tobit False = 0
+
 -- ============================
 alu :: Operator -> Int -> Int -> Int
 alu opCode x y = case opCode of
@@ -121,9 +124,6 @@ alu opCode x y = case opCode of
         LShift -> shiftL x y
         RShift -> shiftR x y
         Xor    -> x `xor` y
-    where
-        tobit True  = 1
-        tobit False = 0
 
 -- ============================
 agu :: AguCode -> Int -> Int -> Int
