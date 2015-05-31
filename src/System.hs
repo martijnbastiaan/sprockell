@@ -68,13 +68,9 @@ processRequest mem (spr, out) = do
             (mem', reply) <- ioDevice mem out
             return (mem', (spr, reply))
 
-
-tail' [] = []
-tail' xs = tail xs
-
 system :: SystemState -> IO SystemState
 system (sprs, buffersS2M, buffersM2S, queue, mem, cycle) = do 
-                  let newToQueue        = zip [0..length sprs] (map head buffersS2M)
+                  let newToQueue        = shuffle cycle $ zip [0..length sprs] (map head buffersS2M)
                   let queue'            = queue ++ (catRequests $ newToQueue)
                   (mem', reply)         <- if   null queue' 
                                            then return (mem, (0, Nothing))
@@ -86,7 +82,7 @@ system (sprs, buffersS2M, buffersM2S, queue, mem, cycle) = do
                   let buffersM2S'       = zipWith (<+) buffersM2S replies
                   let buffersS2M'       = zipWith (<+) buffersS2M sprOutps
 
-                  return (sprs', buffersS2M',buffersM2S', tail' queue', mem', succ cycle)
+                  return (sprs', buffersS2M',buffersM2S', drop 1 queue', mem', succ cycle)
 
 -- ===========================================================================================
 -- ===========================================================================================
