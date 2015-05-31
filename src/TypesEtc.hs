@@ -33,9 +33,6 @@ data Operator = Add  | Sub | Mul  | Div | Mod
               | Decr | Incr
               deriving (Eq,Show,Read)
 
-data PutType = Int | Char
-             deriving (Eq,Show,Read)
-
 data Instruction = 
           -- Compute opCode r0 r1 r2: go to "alu",
           -- do "opCode" on regs r0, r1, and put result in reg r2
@@ -59,8 +56,6 @@ data Instruction =
         | Read MemAddr    -- Read from input and put value in regA
         | Receive Reg        -- Read on its way
         | Write Reg MemAddr    -- Write content of regA to output
-        | Put PutType Reg
-        | Get
 
         | Start Reg Reg        -- Start Sprockell `regA` at instruction `regB`. You can use this on
                     -- running Sprockells; keep in mind it only changes the program counter,
@@ -108,9 +103,6 @@ data IOCode = IONone
             | IORead
             | IOWrite
             | IOTest
-            | IOPutChar
-            | IOPutInt
-            | IOGet
             deriving (Eq,Show)
 
 data MachCode = MachCode
@@ -137,12 +129,9 @@ data SprState = SprState
         }
 
 data SprockellOut 
-        = ReadReq    Int            -- ReadReq   adres
-        | WriteReq   Int Int        -- WriteReq  adres value
-        | TestReq    Int            -- TestReq   adres
-        | PutIntReq  Int
-        | PutCharReq Int
-        | GetReq
+        = ReadReq    Int            -- ReadReq   adress
+        | WriteReq   Int Int        -- WriteReq  adress value
+        | TestReq    Int            -- TestReq   adress
         deriving (Eq,Show)
 
 type Request = Maybe SprockellOut
@@ -150,10 +139,8 @@ type Reply = Maybe Int
 
 data Sprockell = Sprockell Int [Instruction] SprState
 
---                 Sprockell outputs    mem   seq
-type ShMemState = ([(Int,SprockellOut)],[Int], Int)
+--              Shared memory    Request         Memory, reply to sprockell
+type IODevice = [Int]         -> SprockellOut -> IO ([Int], Reply)
 
-data ShMem = ShMem ShMemState
-
-type SystemState = ([Sprockell], [[Request]], [[Reply]], ShMem)
+type SystemState = ([Sprockell], [[Request]], [[Reply]], [(Int, SprockellOut)], [Int], Int)
 

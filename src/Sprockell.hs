@@ -22,7 +22,7 @@ import TypesEtc
 dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
 
 
-initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0}
+initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0, halted=False}
     where
         regvalues = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
         regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
@@ -85,13 +85,6 @@ decode instr  = case instr of
 
     Write j (Addr a)         -> nullcode {ioCode=IOWrite, aguCode=AguImm, addrImm=a, inputY=j}
     Write j (Deref p)        -> nullcode {ioCode=IOWrite, aguCode=AguDeref, deref=p, inputY=j}
-
-    -- stdout
-    Put Char j               -> nullcode {ioCode=IOPutChar, inputY=j}
-    Put Int  j               -> nullcode {ioCode=IOPutInt, inputY=j}
-
-    -- stdin
-    Get                      -> nullcode {ioCode=IOGet}
 
     EndProg                  -> nullcode {pcCode=PCJump TRel, immValue=0, sHalted=True}
     Debug _                  -> nullcode
@@ -160,8 +153,7 @@ sendOut ioCode address value = case ioCode of
         IONone    -> Nothing
         IORead    -> Just $ ReadReq address
         IOWrite   -> Just $ WriteReq address value
-        IOPutChar -> Just $ PutCharReq value
-        IOPutInt  -> Just $ PutIntReq value
+        IOTest    -> Just $ TestReq address
 
 -- ======================================================================================
 -- Putting it all together

@@ -18,75 +18,75 @@ randomStart = 0 -- Change for different random behaviour
 
 
 -- execS prevents executing Sprockells which have active=false set.
-execS spr inp = (Sprockell ident instrs sprState', outp)
+execS (Sprockell ident instrs sprState) inp = (Sprockell ident instrs sprState', outp)
             where
-                (Sprockell ident instrs sprState) = spr
                 (sprState',outp) = sprockell instrs sprState inp
 
--- We handle exactly one request at each clock tick, so we basically need to concatenate all
--- incoming requests and pop the head. This has the unfortunate side-effect of prioritising
--- certain Sprockells. To mitigate this behaviour *and* to "randomise" the behaviour of the
--- shared memory, this function chooses a random head.
-randomiseQueue :: [(Int, SprockellOut)] -> Int -> [(Int, SprockellOut)]
-randomiseQueue queue seq  = spr : (left ++ right)
-        where
-                available = nub $ map fst queue
-                chosen = available !! ((randomInts !! seq) `mod` (length available))
-                chosenIndex = fst $ head $ filter (\(i, (sprNr, sprOut)) -> sprNr ==  chosen) (zip [0..] queue)
-                (left, spr, right) = slice chosenIndex queue
-
-newToQueue :: [Request] -> [(Int, SprockellOut)]
-newToQueue inps = map (\(i,r) -> (i, fromJust r))  $  filter ((/=Nothing).snd)  $  zip [0..] inps
-
-
 -- ===========================================================================================
+-- IO Devices
 -- ===========================================================================================
--- 
--- shMem is the Mealy machine modelling the shared memory:
---        - its state conists of the input queue and its actual memory
---        - it handles exactly one request at a time
---        - it has a sequence number to simulate randomness
 ifReadyDo :: IO Char -> IO (Maybe Int)
 ifReadyDo x = hReady stdin >>= f
    where f True  = x >>= return . (Just . ord)
          f False = return Nothing
 
-shMem ([]   ,mem,seq) inps = return ((newToQueue inps,mem,seq+1), (replicate (length inps) Nothing))
-shMem (queue,mem,seq) inps = do
-          let defaultOuts  = replicate (length inps) Nothing
-          let queue'       = (randomiseQueue queue seq) ++ (newToQueue inps)
-          inputChar       <- ifReadyDo (hLookAhead stdin)
-          (mem',outps)    <- case head queue' of
-                      -- Memory
-                      (i, ReadReq  a)     -> return (mem, defaultOuts <~ (i, Just (mem!!a)) )
-                      (i, WriteReq a val) -> return (mem <~ (a, val), defaultOuts)
-                      -- Test and set 
-                      (i, TestReq  a)     -> return (mem', outs')
-                        where
-                           test  = tobit $ testBit (mem !! a) 0
-                           mem'  = mem         <~ (a, test)
-                           outs' = defaultOuts <~ (i, Just test)
-                      -- Stdout
-                      (i, PutIntReq v)    -> putChar (intToDigit v) >> return (mem, defaultOuts)
-                      (i, PutCharReq v)   -> putChar (chr v) >> return (mem, defaultOuts)
-                      (i, GetReq)         -> return (mem, defaultOuts <~ (i, Just $ fromMaybe (-1) inputChar))
-          return ((tail queue',mem',seq+1), outps)
+memDevice :: IODevice
+memDevice mem (ReadReq addr)        = return (mem, Just $ mem !! addr)
+memDevice mem (WriteReq addr value) = return (mem <~ (addr, value), Nothing)
+memDevice mem (TestReq addr)        = return (mem <~ (addr, test),  Just test)
+    where
+       test  = tobit $ testBit (mem !! addr) 0
 
-
+stdDevice :: IODevice
+stdDevice mem (WriteReq _ value) = putChar (chr value) >> return (mem, Nothing)
+stdDevice mem (ReadReq _) = do
+      inputChar  <- ifReadyDo (hLookAhead stdin) 
+      inputChar' <- case inputChar of
+                        Nothing -> return (Just (-1))
+                        Just c  -> getChar >> return (Just c)
+      return (mem, inputChar')
+        
 -- ===========================================================================================
 -- ===========================================================================================
--- SystemState contains:
---        - a list of sprockells
---        - a list of buffers from the sprockells to shared memory
---        - a list of buffers from shared memory to the sprockells
---        - the shared memory
+addr :: SprockellOut -> Int
+addr (ReadReq  a)   = a
+addr (WriteReq a _) = a
+addr (TestReq  a)   = a
+
+mapAddress :: Int -> IODevice
+mapAddress addr | addr <= 0xFF = memDevice
+                | otherwise    = stdDevice
+
+catRequests :: [(Int, Maybe SprockellOut)] -> [(Int, SprockellOut)]
+catRequests [] = []
+catRequests ((_, Nothing):reqs)  =          catRequests reqs
+catRequests ((n, Just s):reqs)   = (n, s) : catRequests reqs
+
+processRequest :: [Int] -> (Int, SprockellOut) -> IO ([Int], (Int, Maybe Int))
+processRequest mem (spr, out) = do
+            let ioDevice  = mapAddress (addr out)
+            (mem', reply) <- ioDevice mem out
+            return (mem', (spr, reply))
+
+
+tail' [] = []
+tail' xs = tail xs
+
 system :: SystemState -> IO SystemState
-system (sprs, buffersS2M, buffersM2S, ShMem st) = do 
-                  (shmem',replies)                  <- shMem st $ map head buffersS2M
-                  let (sprs' ,sprOutps)             = unzip $ zipWith execS sprs (map head buffersM2S) 
-                  let buffersS2M'                   = zipWith (<+) buffersS2M sprOutps
-                  let buffersM2S'                   = zipWith (<+) buffersM2S replies
-                  return (sprs', buffersS2M',buffersM2S', ShMem shmem')
+system (sprs, buffersS2M, buffersM2S, queue, mem, cycle) = do 
+                  let newToQueue        = zip [0..length sprs] (map head buffersS2M)
+                  let queue'            = queue ++ (catRequests $ newToQueue)
+                  (mem', reply)         <- if   null queue' 
+                                           then return (mem, (0, Nothing))
+                                           else processRequest mem $ head queue'
+                  let replies           = (replicate (length sprs) Nothing) <~ reply
+                  let (sprs', sprOutps) = unzip $ zipWith execS sprs (map head buffersM2S) 
+
+                  -- Update delay queues
+                  let buffersM2S'       = zipWith (<+) buffersM2S replies
+                  let buffersS2M'       = zipWith (<+) buffersS2M sprOutps
+
+                  return (sprs', buffersS2M',buffersM2S', tail' queue', mem', succ cycle)
 
 -- ===========================================================================================
 -- ===========================================================================================
@@ -99,7 +99,7 @@ halted' (Sprockell _ _ SprState{..}) = halted
 -- ===========================================================================================
 -- "Simulates" sprockells by recursively calling them over and over again
 simulate :: (SystemState -> String) -> SystemState -> IO ()
-simulate debugFunc sysState@(sprs, _, _, _) 
+simulate debugFunc sysState@(sprs, _, _, _, _, _) 
     | all halted' sprs = return ()
     | otherwise   = do
        	sysState' <- system sysState
@@ -110,11 +110,11 @@ simulate debugFunc sysState@(sprs, _, _, _)
 -- ===========================================================================================
 -- Initialise SystemState for N sprockells
 initSystemState :: Int -> [Instruction] -> SystemState
-initSystemState n instrs = (sprockells, buffer, buffer, sharedMemory)
+initSystemState n instrs = (sprockells, buffer, buffer, [], sharedMemory, 0)
      where
         sprockells   = [Sprockell n instrs (initstate n) | n <- [0..n]]
         buffer       = replicate n (replicate bufferSize Nothing)
-        sharedMemory = ShMem ([], replicate memorySize 0 :: [Int], randomStart)
+        sharedMemory = replicate memorySize 0 :: [Int]
  
 run :: Int -> [Instruction] -> IO ()
 run = runDebug (const "")
