@@ -27,7 +27,7 @@ import TypesEtc
 prog = [
     Const 8 regA
     Const 9 regB
-    Compute Add regA regB regC
+    Compute Add RegA RegB RegC
    ]
 
 run 1 prog
