@@ -12,12 +12,10 @@ import Sprockell
 import PseudoRandom
 
 -- execS prevents executing Sprockells which have active=false set.
-execS spr inp
-       | halted spr = (spr, Nothing, Nothing)
-       | otherwise  = (Sprockell ident instrs sprState', outp, powerreq)
+execS spr inp = (Sprockell ident instrs sprState', outp)
             where
                 (Sprockell ident instrs sprState) = spr
-                (sprState',outp,powerreq) = sprockell instrs sprState inp
+                (sprState',outp) = sprockell instrs sprState inp
 
 -- We handle exactly one request at each clock tick, so we basically need to concatenate all
 -- incoming requests and pop the head. This has the unfortunate side-effect of prioritising
@@ -71,31 +69,19 @@ shMem (queue,mem,seq) inps = do
 
 -- ===========================================================================================
 -- ===========================================================================================
-power' :: Sprockell -> Bool -> Int -> Sprockell
-power' (Sprockell ident instrs spr) active pc = Sprockell ident instrs spr{active=active}
-
-power :: [Sprockell] -> Maybe PowerOut -> [Sprockell]
-power sprs Nothing = sprs
-power sprs (Just (StartReq spr pc)) = sprs <~ (spr, power' (sprs !! spr) True pc)
-power sprs (Just (StopReq spr))     = sprs <~ (spr, power' (sprs !! spr) False 0)
-
--- ===========================================================================================
--- ===========================================================================================
 -- SystemState contains:
 --        - a list of sprockells
 --        - a list of buffers from the sprockells to shared memory
 --        - a list of buffers from shared memory to the sprockells
 --        - the shared memory
-
 system :: SystemState -> IO SystemState
 system (sprs, buffersS2M,buffersM2S,shmem) = do 
                   let (ShMem st)                    = shmem
                   (shmem',replies)                  <- shMem st $ map head' buffersS2M
-                  let (sprs' ,sprOutps, powerReqs)  = unzip3 $ zipWith execS sprs (map head' buffersM2S) 
-                  let sprs''                        = foldl power sprs' powerReqs
+                  let (sprs' ,sprOutps)             = unzip $ zipWith execS sprs (map head' buffersM2S) 
                   let buffersS2M'                   = zipWith (<+) buffersS2M sprOutps
                   let buffersM2S'                   = zipWith (<+) buffersM2S replies
-                  return (sprs'', buffersS2M',buffersM2S', ShMem shmem')
+                  return (sprs', buffersS2M',buffersM2S', ShMem shmem')
 
 -- ===========================================================================================
 -- ===========================================================================================

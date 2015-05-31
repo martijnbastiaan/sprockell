@@ -113,11 +113,6 @@ data IOCode = IONone
             | IOGet
             deriving (Eq,Show)
 
-data PowerCode = PowerNone
-               | PowerStart
-               | PowerStop
-               deriving (Eq,Show)
-
 data MachCode = MachCode
        { ldCode    :: LdCode       -- source of load results
        , stCode    :: StCode       -- store command
@@ -132,7 +127,6 @@ data MachCode = MachCode
        , addrImm   :: Int          -- address constant
        , deref     :: Reg          -- address register
        , pcCode    :: PCCode       -- next PC determination
-       , powerCode :: PowerCode    -- indicates whether another Sprockell core should be started
        } deriving (Eq,Show)
 
 data SprState = SprState
@@ -149,10 +143,6 @@ data SprockellOut
         | PutCharReq Int
         | GetReq
         deriving (Eq,Show)
-
-data PowerOut = StartReq Int Int
-              | StopReq Int 
-              deriving (Eq,Show)
 
 type Request = Maybe SprockellOut
 type Reply = Maybe Int

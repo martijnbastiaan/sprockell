@@ -42,7 +42,6 @@ nullcode = MachCode
         , loadReg     = Zero
         , addrImm     = 0
         , deref       = Zero
-        , powerCode   = PowerNone
         }
 
 {-------------------------------------------------------------
@@ -92,9 +91,6 @@ decode instr  = case instr of
 
     -- stdin
     Get                      -> nullcode {ioCode=IOGet}
-
-    Start spr line           -> nullcode {powerCode=PowerStart, inputX=spr, inputY=line}
-    Stop spr                 -> nullcode {powerCode=PowerStop, inputX=spr}
 
     EndProg                  -> nullcode {pcCode=PCJump TRel, immValue=0}
     Debug _                  -> nullcode
@@ -166,15 +162,9 @@ sendOut ioCode address value = case ioCode of
         IOPutChar -> Just $ PutCharReq value
         IOPutInt  -> Just $ PutIntReq value
 
-sendPower :: PowerCode -> (Int, Int) -> Maybe PowerOut
-sendPower powerCode (sprockell, instr) = case powerCode of
-        PowerNone  -> Nothing
-        PowerStart -> Just $ StartReq sprockell instr
-        PowerStop  -> Just $ StopReq sprockell
-
 -- ======================================================================================
 -- Putting it all together
-sprockell instrs  SprState{..} inputFifo = (sprState, output, power) where
+sprockell instrs  SprState{..} inputFifo = (sprState, output) where
         pc            = regbank !! fromEnum PC
         MachCode{..}  = decode (instrs !! pc)
 
@@ -199,7 +189,6 @@ sprockell instrs  SprState{..} inputFifo = (sprState, output, power) where
 
         -- Managed by System
         output        = sendOut ioCode address regY
-        power         = sendPower powerCode (regX, regY)
 
 -- ==========================================================================================================
 
