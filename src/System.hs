@@ -109,18 +109,16 @@ halted (Sprockell _ instrs SprState{regbank=regbank, active=active}) =
 
 -- ===========================================================================================
 -- ===========================================================================================
-sysSim :: (SystemState -> IO()) -> SystemState -> IO ()
+sysSim :: (SystemState -> String) -> SystemState -> IO ()
 sysSim debugFunc sysState@(sprs, _, _, _) 
     | all halted sprs = return ()
     | otherwise   = do
        	sysState' <- system sysState
-        _         <- debugFunc sysState'
+        putStr (debugFunc sysState')
         sysSim debugFunc sysState'
         
 head'  []       = Nothing
 head' (x:xs)    = x
-
-voidDebug state = return ()
 
 -- ===========================================================================================
 -- ===========================================================================================
@@ -128,9 +126,9 @@ spr :: [Instruction] -> Int -> Sprockell
 spr instrs ident = Sprockell ident instrs (initstate ident)
 
 run :: Int -> [Instruction] -> IO ()
-run = runDebug voidDebug
+run = runDebug (const "")
 
-runDebug :: (SystemState -> IO ()) -> Int -> [Instruction] -> IO ()
+runDebug :: (SystemState -> String) -> Int -> [Instruction] -> IO ()
 runDebug debugFunc n instrs = sysSim debugFunc (sprockells, spr2Mems0, mem2Sprs0, shMem0)
     where
         sprockells = map (spr instrs) [0..n]
