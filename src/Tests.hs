@@ -32,6 +32,12 @@ indirectLoadProg = [
 indirectLoadTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
          | getRegs regbank [RegA, RegB, RegC] == [2, 3, 2] = "OK"
 
+-- Write to Zero
+writeZeroProg = [Const 2 Zero, Compute Add Zero RegA RegA, EndProg]
+writeZeroSuite = ("ZeroTest", 1, writeZeroProg, writeZeroTest)
+writeZeroTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
+        | getRegs regbank [RegA, Zero] == [0, 0] = "OK"
+
 -- Indirect Store --
 indirectStoreSuite = ("IndirectStoreTest", 1, indirectStoreProg, indirectStoreTest)
 indirectStoreProg = [
@@ -57,6 +63,7 @@ runSuite (name, nSprockells, prog, test) = do
 main = do
     runSuite writeRegSuite
     runSuite computeSuite
+    runSuite writeZeroSuite
     runSuite indirectLoadSuite
     runSuite indirectStoreSuite
     return ()
