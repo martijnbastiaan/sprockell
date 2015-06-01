@@ -57,13 +57,6 @@ data Instruction =
         | Receive Reg        -- Read on its way
         | Write Reg MemAddr    -- Write content of regA to output
 
-        | Start Reg Reg        -- Start Sprockell `regA` at instruction `regB`. You can use this on
-                    -- running Sprockells; keep in mind it only changes the program counter,
-                    -- while the rest of the data (registers, oustanding I/O requests) are 
-                    -- not touched at all. Here be dragons!
-
-        | Stop Reg        -- Stop Sprockell `regA`
- 
         | EndProg        -- end of program, deactivates Sprockell. If all sprockells are at
                     -- this instruction, the simulation will halt.
         | Nop            -- "No operation"
