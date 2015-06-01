@@ -25,11 +25,10 @@ import Sprockell
 import System
 import TypesEtc
 
-prog = [
-    Const 8 RegA
-    Const 9 RegB
-    Compute Add RegA RegB RegC
-   ]
+prog = [ Const 8 RegA
+       , Const 9 RegB
+       , Compute Add RegA RegB RegC
+       ]
 
 run 1 prog
 ```
