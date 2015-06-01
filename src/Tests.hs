@@ -5,19 +5,22 @@ import Debug.Trace
 
 type TestSuite = (String, Int, [Instruction], (SystemState -> String))
 
-getRegs regbank = map ((regbank !!) . fromEnum)
+getRegs' regbank           = map ((regbank !!) . fromEnum)
+getRegs sysState spid regs = getRegs' (regbank ((sprs sysState) !! spid)) regs
 
 -- Can we write to registers and does zero stay zero? --
 writeRegProg = [Const 10 RegA, Const 11 RegB, Const 15 Zero, EndProg]
 writeRegSuite = ("RegTest", 1, writeRegProg, writeRegTest)
-writeRegTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
-        | getRegs regbank [RegA, RegB, Zero] == [10, 11, 0] = "OK"
+
+writeRegTest sysState
+        | getRegs sysState 0 [RegA, RegB, Zero] == [10, 11, 0] = "OK"
 
 -- Does computing work? --
 computeProg = [Const 3 RegA, Const 2 RegB, Compute Mul RegA RegB RegC, EndProg]
 computeSuite = ("ComputeTest", 1, computeProg, computeTest)
-computeTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
-        | getRegs regbank [RegA, RegB, RegC] == [3, 2, 6] = "OK"
+
+computeTest sysState
+        | getRegs sysState 0  [RegA, RegB, RegC] == [3, 2, 6] = "OK"
 
 -- Indirect Load --
 indirectLoadSuite = ("IndirectLoadTest", 1, indirectLoadProg, indirectLoadTest)
@@ -29,14 +32,15 @@ indirectLoadProg = [
         , EndProg
         ] 
 
-indirectLoadTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
-         | getRegs regbank [RegA, RegB, RegC] == [2, 3, 2] = "OK"
+indirectLoadTest sysState
+         | getRegs sysState 0 [RegA, RegB, RegC] == [2, 3, 2] = "OK"
 
 -- Write to Zero
 writeZeroProg = [Const 2 Zero, Compute Add Zero RegA RegA, EndProg]
 writeZeroSuite = ("ZeroTest", 1, writeZeroProg, writeZeroTest)
-writeZeroTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
-        | getRegs regbank [RegA, Zero] == [0, 0] = "OK"
+
+writeZeroTest sysState
+        | getRegs sysState 0 [RegA, Zero] == [0, 0] = "OK"
 
 -- Indirect Store --
 indirectStoreSuite = ("IndirectStoreTest", 1, indirectStoreProg, indirectStoreTest)
@@ -48,8 +52,8 @@ indirectStoreProg = [
         , EndProg
         ] 
 
-indirectStoreTest ([Sprockell _ _ SprState{..}], _, _, _, _, _) 
-         | getRegs regbank [RegA, RegB, RegC] == [2, 3, 2] = "OK"
+indirectStoreTest sysState
+         | getRegs sysState 0 [RegA, RegB, RegC] == [2, 3, 2] = "OK"
 
 
 -- Running test logic --

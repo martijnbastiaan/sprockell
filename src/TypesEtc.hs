@@ -1,8 +1,14 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module TypesEtc where
 
 -- ==========================================================================================================
+
+-- type synonyms for clarity
+type Value = Int
+type Address = Int
+type CodeAddr = Int
+
 -- Sprockell instructions
 data Reg = Zero
          | PC
@@ -15,12 +21,12 @@ data Reg = Zero
          | RegE
          deriving (Eq,Show,Read,Ord,Enum,Bounded)
 
-data MemAddr = Addr Int
+data MemAddr = Addr Address
              | Deref Reg
              deriving (Eq,Show,Read)
 
-data Target = Abs Int
-            | Rel Int
+data Target = Abs CodeAddr
+            | Rel CodeAddr
             | Ind Reg
             deriving (Eq,Show,Read)
 
@@ -38,7 +44,7 @@ data Instruction =
           -- do "opCode" on regs r0, r1, and put result in reg r2
           Compute Operator Reg Reg Reg
                                          
-        | Const Int Reg
+        | Const Value Reg
 
         | Branch Reg Target
         | Jump Target
@@ -62,7 +68,6 @@ data Instruction =
         | Nop            -- "No operation"
         | Debug String
         deriving (Eq,Show,Read)
-
 
 -- ==========================================================================================================
 -- Internal Sprockell data structures
@@ -104,36 +109,44 @@ data MachCode = MachCode
        , aguCode   :: AguCode      -- address calculation 
        , aluCode   :: Operator     -- arithmetic operation
        , ioCode    :: IOCode       -- communication with the rest of the system
-       , immValue  :: Int          -- value from Immediate
+       , immValue  :: Value        -- value from Immediate
        , inputX    :: Reg          -- first input register
        , inputY    :: Reg          -- seconde input register
        , result    :: Reg          -- alu result register
        , loadReg   :: Reg          -- where to load results are written to
-       , addrImm   :: Int          -- address constant
+       , addrImm   :: Address      -- address constant
        , deref     :: Reg          -- address register
        , pcCode    :: PCCode       -- next PC determination
-       , sHalted   :: Bool         -- set sprockell active / halted
        } deriving (Eq,Show)
 
-data SprState = SprState
-        { regbank   :: [Int]        -- register bank
-        , dmem      :: [Int]        -- local data memory
+data SprockellState = SprState
+        { regbank   :: RegBank     -- register bank
+        , localMem  :: Memory      -- local data memory
         , halted    :: Bool
         }
 
-data SprockellOut 
-        = ReadReq    Int            -- ReadReq   adress
-        | WriteReq   Int Int        -- WriteReq  adress value
-        | TestReq    Int            -- TestReq   adress
+type RegBank = [Value]
+type Memory = [Value]
+        
+type SprockellOut = (Address, SprockelRequest)
+
+data SprockelRequest 
+        = ReadReq
+        | WriteReq Value
+        | TestReq
         deriving (Eq,Show)
 
 type Request = Maybe SprockellOut
-type Reply = Maybe Int
+type Reply = Maybe Value
 
-data Sprockell = Sprockell Int [Instruction] SprState
+newtype SprockellID = SprID Int deriving (Eq,Ord,Enum,Show,Num)
 
---              Shared memory    Request         Memory, reply to sprockell
-type IODevice = [Int]         -> SprockellOut -> IO ([Int], Reply)
-
-type SystemState = ([Sprockell], [[Request]], [[Reply]], [(Int, SprockellOut)], [Int], Int)
-
+data SystemState = SysState
+        { instrs     :: [Instruction]
+        , sprs       :: [SprockellState]
+        , buffersS2M :: [[Request]]
+        , buffersM2S :: [[Reply]]
+        , queue      :: [(SprockellID, SprockellOut)]
+        , sharedMem  :: Memory
+        , cycleCount :: Int
+        }
