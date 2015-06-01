@@ -24,8 +24,9 @@ dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memo
 
 initstate ident = SprState {regbank = regvalues, dmem = replicate dmemsize 0, halted=False}
     where
-        regvalues = ((replicate regbanksize 0) <~ (fromEnum SPID, ident)) <~ (fromEnum SP, dmemsize - 1)
         regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
+        regvalues = (replicate regbanksize 0) <<~ [ (fromEnum SPID, ident)
+                                                  , (fromEnum SP, dmemsize - 1) ]
 
 
 nullcode = MachCode
@@ -173,12 +174,12 @@ sprockell instrs  SprState{..} inputFifo = (sprState, output) where
 
         nextPC        = pcUpd pcCode pc regX regAddr inputFifo immValue
 
-        regbank'      = regbank    <~ (fromEnum result, aluOutput)
-        regbank''     = regbank'   <~ (fromEnum loadReg, loadValue)
-        regbank'''    = regbank''  <~ (fromEnum Zero, 0)
-        regbank''''   = regbank''' <~ (fromEnum PC, nextPC)
+        regbank'      = regbank <<~ [ (fromEnum result, aluOutput)
+                                    , (fromEnum loadReg, loadValue)
+                                    , (fromEnum Zero, 0)
+                                    , (fromEnum PC, nextPC) ]
 
-        sprState      = SprState {dmem=dmem',regbank=regbank'''',halted=sHalted}
+        sprState      = SprState {dmem=dmem',regbank=regbank',halted=sHalted}
 
         -- Managed by System
         output        = sendOut ioCode address regY
@@ -189,3 +190,4 @@ xs <: x = xs ++ [x]
 xs <+ x = drop 1 xs ++ [x]
 
 xs <~ (i,x) = take i xs ++ [x] ++ drop (i+1) xs         -- TODO: note the effect for i >= length xs
+xs <<~ updates = foldl (<~) xs updates
