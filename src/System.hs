@@ -93,9 +93,9 @@ halted' (Sprockell _ _ SprState{..}) = halted
 -- ===========================================================================================
 -- ===========================================================================================
 -- "Simulates" sprockells by recursively calling them over and over again
-simulate :: (SystemState -> String) -> SystemState -> IO ()
+simulate :: (SystemState -> String) -> SystemState -> IO SystemState
 simulate debugFunc sysState@(sprs, _, _, _, _, _) 
-    | all halted' sprs = return ()
+    | all halted' sprs = return sysState
     | otherwise   = do
        	sysState' <- system sysState
         putStr (debugFunc sysState')
@@ -111,8 +111,8 @@ initSystemState n instrs = (sprockells, buffer, buffer, [], sharedMemory, random
         buffer       = replicate n (replicate bufferSize Nothing)
         sharedMemory = replicate memorySize 0 :: [Int]
  
-run :: Int -> [Instruction] -> IO ()
+run :: Int -> [Instruction] -> IO SystemState
 run = runDebug (const "")
 
-runDebug :: (SystemState -> String) -> Int -> [Instruction] -> IO ()
+runDebug :: (SystemState -> String) -> Int -> [Instruction] -> IO SystemState
 runDebug debugFunc n instrs = simulate debugFunc (initSystemState n instrs)
