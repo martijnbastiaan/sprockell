@@ -127,7 +127,9 @@ data SprockellState = SprState
 
 type RegBank = [Value]
 type Memory = [Value]
-        
+
+type RngState = [Int]
+
 type SprockellOut = (Address, SprockelRequest)
 
 data SprockelRequest 
@@ -149,4 +151,5 @@ data SystemState = SysState
         , queue      :: [(SprockellID, SprockellOut)]
         , sharedMem  :: Memory
         , cycleCount :: Int
+        , rngState   :: RngState
         }

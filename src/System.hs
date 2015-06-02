@@ -13,7 +13,6 @@ import PseudoRandom
 -- Constants
 bufferSize  = 2 -- bufferSize >  0
 memorySize  = 6 -- memorySize >= 0
-randomStart = 0 -- Change for different random behaviour
 
 
 -- ===========================================================================================
@@ -58,7 +57,8 @@ processRequest ((SprID spr, out):_) mem = do
 
 system :: SystemState -> IO SystemState
 system SysState{..} = do 
-        let newToQueue        = shuffle cycleCount $ zip [0..] (map head buffersS2M)
+        let (r,rngState')     = randomInt rngState
+        let newToQueue        = shuffle r $ zip [0..] (map head buffersS2M)
         let queue'            = queue ++ (catRequests $ newToQueue)
         (mem', reply)         <- processRequest queue' sharedMem
         let replies           = (replicate (length sprs) Nothing) <~ reply
@@ -68,7 +68,7 @@ system SysState{..} = do
         let buffersM2S'       = zipWith (<+) buffersM2S replies
         let buffersS2M'       = zipWith (<+) buffersS2M sprOutps
 
-        return (SysState instrs sprs' buffersS2M' buffersM2S' (drop 1 queue') mem' (succ cycleCount))
+        return (SysState instrs sprs' buffersS2M' buffersM2S' (drop 1 queue') mem' (succ cycleCount) rngState')
 
 xs <+ x = drop 1 xs ++ [x]
 
@@ -94,7 +94,8 @@ initSystemState n is = SysState
         , buffersM2S = replicate n (replicate bufferSize Nothing)
         , queue      = []
         , sharedMem  = replicate memorySize 0
-        , cycleCount = randomStart
+        , cycleCount = 0
+        , rngState   = seed0
         }
     where
         padWithErrors is = is ++ [error ("trying to execute from undefined address: " ++ show (length is + n))| n <- [0..]]
