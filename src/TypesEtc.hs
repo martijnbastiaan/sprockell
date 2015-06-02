@@ -8,6 +8,7 @@ module TypesEtc where
 type Value = Int
 type Address = Int
 type CodeAddr = Int
+type Seed = Int
 
 -- Sprockell instructions
 data Reg = Zero

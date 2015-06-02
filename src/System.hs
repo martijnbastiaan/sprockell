@@ -3,6 +3,7 @@ module System where
 
 import Control.Monad
 import System.IO
+import System.Random
 import Data.Bits
 import Data.Char
 import Debug.Trace
@@ -86,8 +87,8 @@ simulate debugFunc sysState
 -- ===========================================================================================
 -- ===========================================================================================
 -- Initialise SystemState for N sprockells
-initSystemState :: Int -> [Instruction] -> SystemState
-initSystemState n is = SysState
+initSystemState :: Int -> [Instruction] -> Seed -> SystemState
+initSystemState n is seed = SysState
         { instrs     = padWithErrors is
         , sprs       = map initSprockell [0..n]
         , buffersS2M = replicate n (replicate bufferSize Nothing)
@@ -95,13 +96,29 @@ initSystemState n is = SysState
         , queue      = []
         , sharedMem  = replicate memorySize 0
         , cycleCount = 0
-        , rngState   = seed0
+        , rngState   = dec2bin seed
         }
     where
         padWithErrors is = is ++ [error ("trying to execute from undefined address: " ++ show (length is + n))| n <- [0..]]
  
+pickSeed :: IO (Int)
+pickSeed = getStdRandom random
+
 run :: Int -> [Instruction] -> IO SystemState
-run = runDebug (const "")
+run n instrs = do
+    seed <- pickSeed
+    runWithSeed seed n instrs
 
 runDebug :: (SystemState -> String) -> Int -> [Instruction] -> IO SystemState
-runDebug debugFunc n instrs = simulate debugFunc (initSystemState n instrs)
+runDebug debugFunc n instrs = do
+    seed <- pickSeed
+    runDebugWithSeed seed debugFunc n instrs
+
+
+runWithSeed :: Seed -> Int -> [Instruction] -> IO SystemState
+runWithSeed seed = runDebugWithSeed seed (const "")
+
+runDebugWithSeed :: Seed -> (SystemState -> String) -> Int -> [Instruction] -> IO SystemState
+runDebugWithSeed seed debugFunc n instrs = printSeed >> simulate debugFunc (initSystemState n instrs seed)
+    where
+        printSeed = hPutStrLn stderr $ "Starting with random seed: " ++ show seed
