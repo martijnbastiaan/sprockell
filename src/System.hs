@@ -59,8 +59,8 @@ processRequest ((SprID spr, out):_) mem = do
 system :: SystemState -> IO SystemState
 system SysState{..} = do 
         let (r,rngState')     = randomInt rngState
-        let newToQueue        = shuffle r $ zip [0..] (map head buffersS2M)
-        let queue'            = queue ++ (catRequests $ newToQueue)
+        let newToQueue        = zip [0..] (map head buffersS2M)
+        let queue'            = queue ++ (shuffle r $ catRequests $ newToQueue)
         (mem', reply)         <- processRequest queue' sharedMem
         let replies           = (replicate (length sprs) Nothing) <~ reply
         let (sprs', sprOutps) = unzip $ zipWith (sprockell instrs) sprs (map head buffersM2S) 
