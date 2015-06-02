@@ -102,7 +102,7 @@ initSystemState n is seed = SysState
         padWithErrors is = is ++ [error ("trying to execute from undefined address: " ++ show (length is + n))| n <- [0..]]
  
 pickSeed :: IO (Int)
-pickSeed = getStdRandom random
+pickSeed = getStdRandom $ randomR (0,maxBound)
 
 run :: Int -> [Instruction] -> IO SystemState
 run n instrs = do
