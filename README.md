@@ -19,8 +19,6 @@ Clone the repository, compile `System.hs` using `ghc` and run it from the comman
 Of course, you can compile your own program:
 
 ```haskell
-module Program where
-
 import Sprockell
 import System
 import TypesEtc
@@ -30,7 +28,7 @@ prog = [ Const 8 RegA
        , Compute Add RegA RegB RegC
        ]
 
-run 1 prog
+main = run 1 prog
 ```
 
 Where `1` is the amount of Sprockells you want to deploy.

@@ -79,7 +79,7 @@ simulate :: (SystemState -> String) -> SystemState -> IO SystemState
 simulate debugFunc sysState
     | all halted (sprs sysState) = return sysState
     | otherwise   = do
-       	sysState' <- system sysState
+        sysState' <- system sysState
         putStr (debugFunc sysState')
         simulate debugFunc sysState'
 
