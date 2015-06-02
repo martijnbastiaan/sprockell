@@ -10,8 +10,8 @@ prog = [
            Const 78 RegA 
          , Const 10 RegB
          , Const 5  RegC
-         , Write RegA (Addr 0x100)
-         , Write RegB (Addr 0x100)
+         , Write RegA (Addr 0x1000000)
+         , Write RegB (Addr 0x1000000)
          , Write RegC (Addr 0)
          -- If we add some Nop's to delay the EndProg
          --  then the shared memory has time to handle all the writes.
