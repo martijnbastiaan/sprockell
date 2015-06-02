@@ -88,7 +88,7 @@ simulate debugFunc sysState
 -- Initialise SystemState for N sprockells
 initSystemState :: Int -> [Instruction] -> SystemState
 initSystemState n is = SysState
-        { instrs     = is
+        { instrs     = padWithErrors is
         , sprs       = map initSprockell [0..n]
         , buffersS2M = replicate n (replicate bufferSize Nothing)
         , buffersM2S = replicate n (replicate bufferSize Nothing)
@@ -96,6 +96,8 @@ initSystemState n is = SysState
         , sharedMem  = replicate memorySize 0
         , cycleCount = randomStart
         }
+    where
+        padWithErrors is = is ++ [error ("trying to execute from undefined address: " ++ show (length is + n))| n <- [0..]]
  
 run :: Int -> [Instruction] -> IO SystemState
 run = runDebug (const "")
