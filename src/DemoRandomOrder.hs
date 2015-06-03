@@ -33,5 +33,5 @@ prog = [
        ]
 
 
-main = run 4 prog
+main = run 4 prog >> putChar '\n'
 
