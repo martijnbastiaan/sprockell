@@ -64,6 +64,7 @@ system SysState{..} = do
         let buffersM2S'       = zipWith (<+) buffersM2S replies
         let buffersS2M'       = zipWith (<+) buffersS2M sprOutps
 
+        length buffersM2S' `seq` length sprs' `seq` return () -- prevents huge space leaks
         return (SysState instrs sprs' buffersS2M' buffersM2S' queue' mem' rngState')
 
 -- ===========================================================================================

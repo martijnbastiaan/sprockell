@@ -50,7 +50,8 @@ nullcode = MachCode
 | The actual Sprockell
 -------------------------------------------------------------}
 sprockell :: InstructionMem -> SprockellState -> Maybe Value -> (SprockellState, Maybe SprockellOut)
-sprockell instrs SprState{..} inputVal = (sprState, output) where
+sprockell instrs SprState{..} inputVal = inputVal `seq` (sprState, output) -- be strict in inputVal to prevent space leaks
+    where
         pc           = regbank#PC
         MachCode{..} = decode (instrs!pc)
 
