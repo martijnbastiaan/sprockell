@@ -31,13 +31,16 @@ initRegFile = M.fromList . zip [minBound..maxBound] . repeat
 setRegList :: Ord r => RegFile r a -> [(r,a)] -> RegFile r a
 setRegList = foldl' (flip (uncurry (.=)))
 
-type LookupTable i e = IA.Array i e
+data LookupTable i e = LookupTable String !(IA.Array i e)
 
-initLookupTable :: (Num i, IA.Ix i) => [e] -> LookupTable i e
-initLookupTable xs = IA.listArray (0, fromIntegral (length xs) - 1) xs
+initLookupTable :: (Num i, IA.Ix i) => String -> [e] -> LookupTable i e
+initLookupTable n xs = LookupTable n $ IA.listArray (0, fromIntegral (length xs) - 1) xs
 
-(!) :: IA.Ix i => LookupTable i e -> i -> e
-(!) = (IA.!)
+(!) :: (IA.Ix i, Show i) => LookupTable i e -> i -> e
+(LookupTable n xs) ! i 
+    | i < lo || i > hi = error ("index " ++ show i ++ " out of bounds for " ++ n) 
+    | otherwise = xs IA.! i
+    where (lo, hi) = IA.bounds xs
 
 newtype Buffer a = Buffer [a]
 

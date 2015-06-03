@@ -4,6 +4,7 @@ module System where
 import Control.Monad
 import System.IO
 import System.Random
+import Data.Maybe
 import Data.Bits
 import Data.Char
 import Debug.Trace
@@ -42,20 +43,19 @@ withDevice :: Int -> IODevice
 withDevice addr | addr <= 0xFFFFFF = memDevice
                 | otherwise        = stdDevice
 
-catRequests :: [(SprockellID, Maybe SprockellOut)] -> [(SprockellID, SprockellOut)]
-catRequests [] = []
-catRequests ((_, Nothing):reqs)  =          catRequests reqs
-catRequests ((n, Just s):reqs)   = (n, s) : catRequests reqs
 
-processRequest :: Maybe (SprockellID, SprockellOut) -> SharedMem -> IO (SharedMem, (Int, Maybe Value))
-processRequest Nothing                  mem = return (mem, (0, Nothing))
-processRequest (Just  (SprID spr, out)) mem = fmap (fmap ((,) spr)) $ withDevice (fst out) mem out
+labelRequests :: [Maybe SprockellOut] -> [Maybe (SprockellID, SprockellOut)]
+labelRequests = zipWith (\i -> fmap ((,) i)) [0..]
+
+processRequest :: Maybe (SprockellID, SprockellOut) -> SharedMem -> IO (SharedMem, (SprockellID, Maybe Value))
+processRequest Nothing           mem = return (mem, (0, Nothing))
+processRequest (Just (spr, out)) mem = fmap (fmap ((,) spr)) $ withDevice (fst out) mem out
 
 system :: SystemState -> IO SystemState
 system SysState{..} = do 
         let (r,rngState')     = randomInt rngState
-        let newToQueue        = zip [0..] $ map peek buffersS2M
-        let (queue', xreq)    = deQueue $ catQueue queue $ shuffle r $ catRequests $ newToQueue
+        let newToQueue        = catMaybes $ labelRequests $ map peek buffersS2M
+        let (queue', xreq)    = deQueue $ catQueue queue $ shuffle r newToQueue
         (mem', (sid, reply)) <- processRequest xreq sharedMem
         let replies           = map (\i -> if i == sid then reply else Nothing) [0..]
         let (sprs', sprOutps) = unzip $ zipWith (sprockell instrs) sprs $ map peek buffersM2S
@@ -82,7 +82,7 @@ simulate debugFunc sysState
 -- Initialise SystemState for N sprockells
 initSystemState :: Int -> [Instruction] -> Seed -> SystemState
 initSystemState n is seed = SysState
-        { instrs     = initLookupTable is
+        { instrs     = initLookupTable "InstructionMemory" is
         , sprs       = map initSprockell [0..n]
         , buffersS2M = replicate n (initBuffer bufferSize Nothing) 
         , buffersM2S = replicate n (initBuffer bufferSize Nothing)
