@@ -56,9 +56,9 @@ data Instruction =
         | Push Reg                           -- push a value on the stack
         | Pop Reg                            -- pop a value from the stack
 
-        | TestAndSet MemAddr                 -- Test address for zero and sets it to one if it is. Returns 1 on success,
+        | TestAndSet MemAddr                 -- Tests address for 0 and sets it to 1 if it is. Returns 1 on success,
                                              -- and 0 on failure. This is an atomic operation; it might therefore be
-                                             -- use to implement locks or synchronisation.
+                                             -- used to implement locks or synchronisation.
         | Read MemAddr                       -- Read from input and put value in regA
         | Receive Reg                        -- Read on its way
         | Write Reg MemAddr                  -- Write content of regA to output
