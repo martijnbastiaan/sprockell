@@ -2,6 +2,7 @@
 
 module TypesEtc where
 import Components
+import System.Random
 
 -- ==========================================================================================================
 
@@ -127,7 +128,8 @@ data SprockellState = SprState
 
 type LocalMem = Memory Value
 type RegBank = RegFile Reg Value
-type RngState = [Int]
+
+type RngState = StdGen
         
 type SprockellOut = (Address, SprockelRequest)
 

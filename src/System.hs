@@ -10,7 +10,6 @@ import Debug.Trace
 import Components
 import TypesEtc
 import Sprockell
-import PseudoRandom
 
 -- Constants
 bufferSize  = 2 -- bufferSize >  0
@@ -53,7 +52,7 @@ processRequest (Just  (SprID spr, out)) mem = fmap (fmap ((,) spr)) $ withDevice
 
 system :: SystemState -> IO SystemState
 system SysState{..} = do 
-        let (r,rngState')     = randomInt rngState
+        let (r,rngState')     = random rngState
         let newToQueue        = zip [0..] $ map peek buffersS2M
         let (queue', xreq)    = deQueue $ catQueue queue $ shuffle r $ catRequests $ newToQueue
         (mem', (sid, reply)) <- processRequest xreq sharedMem
@@ -89,11 +88,28 @@ initSystemState n is seed = SysState
         , buffersM2S = replicate n (initBuffer bufferSize Nothing)
         , queue      = initFifo
         , sharedMem  = initMemory
-        , rngState   = dec2bin seed
+        , rngState   = mkStdGen seed
         }
  
 pickSeed :: IO (Int)
 pickSeed = getStdRandom $ randomR (0, maxBound)
+
+-- Given a (random) number, shuffle a list
+shuffle :: Int -> [a] -> [a]
+shuffle _ [] = []
+shuffle n xs = el : shuffle n (left ++ right)
+    where
+        chosenIndex        = n `mod` (length xs)
+        (left, el, right) = slice chosenIndex xs
+
+-- slicing
+slice' from to xs = take (to - from) (drop from xs)
+slice i xs = (left, element, right)
+    where
+        left = slice' 0 i xs
+        element = xs !! i
+        right = drop (i+1) xs
+
 
 run :: Int -> [Instruction] -> IO SystemState
 run n instrs = runDebug (const "") n instrs 
