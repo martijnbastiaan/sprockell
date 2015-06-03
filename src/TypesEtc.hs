@@ -154,4 +154,5 @@ data SystemState = SysState
         , queue      :: !(Fifo (SprockellID, SprockellOut))
         , sharedMem  :: !SharedMem
         , rngState   :: !RngState
+        , cycleCount :: !Int
         }

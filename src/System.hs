@@ -64,7 +64,7 @@ system SysState{..} = do
         let buffersS2M'       = zipWith (<+) buffersS2M sprOutps
 
         length buffersM2S' `seq` length sprs' `seq` return () -- prevents huge space leaks
-        return (SysState instrs sprs' buffersS2M' buffersM2S' queue' mem' rngState')
+        return (SysState instrs sprs' buffersS2M' buffersM2S' queue' mem' rngState' (succ cycleCount))
 
 -- ===========================================================================================
 -- ===========================================================================================
@@ -89,6 +89,7 @@ initSystemState n is seed = SysState
         , queue      = initFifo
         , sharedMem  = initMemory
         , rngState   = mkStdGen seed
+        , cycleCount = 0
         }
  
 pickSeed :: IO (Int)
