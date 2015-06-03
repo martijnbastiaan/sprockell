@@ -153,5 +153,5 @@ data SystemState = SysState
         , buffersM2S :: ![Buffer Reply]
         , queue      :: !(Fifo (SprockellID, SprockellOut))
         , sharedMem  :: !SharedMem
-        , rngState   :: RngState
+        , rngState   :: !RngState
         }
