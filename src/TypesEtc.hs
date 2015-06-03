@@ -44,10 +44,10 @@ data Operator = Add  | Sub | Mul  | Div | Mod
 data Instruction = 
           Compute Operator Reg Reg Reg       -- Compute opCode r0 r1 r2: go to "alu",
                                              --       do "opCode" on regs r0, r1, and put result in reg r2
-        | Const Value Reg
+        | Const Value Reg                    -- Const v r: put value v in register r
 
-        | Branch Reg Target
-        | Jump Target
+        | Branch Reg Target                  -- Branch r t: conditional jump, depending on register r
+        | Jump Target                        -- Jump t: jump to target t (absolute, relative, indirect)
 
         | Load MemAddr Reg                   -- Load (Addr a) r : from "memory a" to "regbank r"
                                              -- Load (Imm  v) r : put "Int v" in "regbank r"
