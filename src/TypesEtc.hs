@@ -9,6 +9,7 @@ import Components
 type Value = Int
 type Address = Int
 type CodeAddr = Int
+type Seed = Int
 
 -- Sprockell instructions
 data Reg = Zero
@@ -128,6 +129,7 @@ data SprockellState = SprState
 
 type LocalMem = Memory Value
 type RegBank = RegFile Reg Value
+type RngState = [Int]
         
 type SprockellOut = (Address, SprockelRequest)
 
@@ -151,5 +153,5 @@ data SystemState = SysState
         , buffersM2S :: ![Buffer Reply]
         , queue      :: !(Fifo (SprockellID, SprockellOut))
         , sharedMem  :: !SharedMem
-        , cycleCount :: !Int
+        , rngState   :: RngState
         }
