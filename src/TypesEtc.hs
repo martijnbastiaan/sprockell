@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module TypesEtc where
+import Components
 
 -- ==========================================================================================================
 
@@ -120,13 +121,13 @@ data MachCode = MachCode
        } deriving (Eq,Show)
 
 data SprockellState = SprState
-        { regbank   :: RegBank     -- register bank
-        , localMem  :: Memory      -- local data memory
-        , halted    :: Bool
+        { regbank   :: !RegBank     -- register bank
+        , localMem  :: !LocalMem    -- local data memory
+        , halted    :: !Bool
         }
 
-type RegBank = [Value]
-type Memory = [Value]
+type LocalMem = Memory Value
+type RegBank = RegFile Reg Value
         
 type SprockellOut = (Address, SprockelRequest)
 
@@ -140,13 +141,15 @@ type Request = Maybe SprockellOut
 type Reply = Maybe Value
 
 newtype SprockellID = SprID Int deriving (Eq,Ord,Enum,Show,Num)
+type SharedMem = Memory Value
+type InstructionMem = LookupTable Int Instruction
 
 data SystemState = SysState
-        { instrs     :: [Instruction]
-        , sprs       :: [SprockellState]
-        , buffersS2M :: [[Request]]
-        , buffersM2S :: [[Reply]]
-        , queue      :: [(SprockellID, SprockellOut)]
-        , sharedMem  :: Memory
-        , cycleCount :: Int
+        { instrs     :: !InstructionMem
+        , sprs       :: ![SprockellState]
+        , buffersS2M :: ![Buffer Request]
+        , buffersM2S :: ![Buffer Reply]
+        , queue      :: !(Fifo (SprockellID, SprockellOut))
+        , sharedMem  :: !SharedMem
+        , cycleCount :: !Int
         }

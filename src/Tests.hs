@@ -1,3 +1,6 @@
+module Tests where 
+
+import Components
 import Sprockell
 import System
 import TypesEtc
@@ -5,8 +8,8 @@ import Debug.Trace
 
 type TestSuite = (String, Int, [Instruction], (SystemState -> String))
 
-getRegs' regbank           = map ((regbank !!) . fromEnum)
 getRegs sysState spid regs = getRegs' (regbank ((sprs sysState) !! spid)) regs
+    where getRegs' rs = map (rs #)
 
 -- Can we write to registers and does zero stay zero? --
 writeRegProg = [Const 10 RegA, Const 11 RegB, Const 15 Zero, EndProg]

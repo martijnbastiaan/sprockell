@@ -5,6 +5,7 @@ module Sprockell where
 import Data.Bits
 import Data.Maybe
 import Debug.Trace
+import Components
 import TypesEtc
 
 {-------------------------------------------------------------
@@ -22,11 +23,11 @@ import TypesEtc
 dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
 
 initSprockell :: Int -> SprockellState
-initSprockell ident = SprState {regbank = regvalues, localMem = replicate dmemsize 0, halted=False}
-    where
-        regbanksize =  fromEnum (maxBound::Reg) - fromEnum (minBound::Reg)
-        regvalues = (replicate regbanksize 0) <<~ [ (fromEnum SPID, ident)
-                                                  , (fromEnum SP, dmemsize - 1) ]
+initSprockell ident = SprState 
+  { regbank  = setRegList (initRegFile 0) [(SPID, ident), (SP, dmemsize)]
+  , localMem = initMemory
+  , halted   = False
+  }
 
 nullcode :: MachCode
 nullcode = MachCode
@@ -48,6 +49,29 @@ nullcode = MachCode
 {-------------------------------------------------------------
 | The actual Sprockell
 -------------------------------------------------------------}
+sprockell :: InstructionMem -> SprockellState -> Maybe Value -> (SprockellState, Maybe SprockellOut)
+sprockell instrs SprState{..} inputVal = (sprState, output) where
+        pc           = regbank#PC
+        MachCode{..} = decode (instrs!pc)
+
+        regX         = regbank#inputX
+        regY         = regbank#inputY
+        aluOutput    = alu aluCode regX regY
+
+        regAddr      = regbank#deref
+        address      = agu aguCode addrImm regAddr
+
+        loadValue    = loadUnit localMem ldCode immValue address inputVal
+        localMem'    = storeUnit localMem stCode address regY
+
+        nextPC       = pcUpdate pcCode pc regX regY (isJust inputVal) immValue
+
+        regbank'     = setRegList regbank [(result, aluOutput), (loadReg, loadValue), (PC, nextPC), (Zero, 0)]
+
+        sHalted      = pcCode == PCJump TRel && immValue == 0
+        sprState     = SprState {localMem=localMem' ,regbank=regbank', halted=sHalted}
+
+        output       = sendOut ioCode address regY
 
 -- ============================
 decode :: Instruction -> MachCode
@@ -93,21 +117,21 @@ alu opCode x y = case opCode of
         Mul    -> x * y
         Div    -> x `div` y
         Mod    -> x `mod` y
-        Equal  -> tobit (x == y)
-        NEq    -> tobit (x /= y)
-        Gt     -> tobit (x > y)
-        GtE    -> tobit (x >= y)
-        Lt     -> tobit (x < y)
-        LtE    -> tobit (x <= y)
+        Equal  -> intBool (x == y)
+        NEq    -> intBool (x /= y)
+        Gt     -> intBool (x > y)
+        GtE    -> intBool (x >= y)
+        Lt     -> intBool (x < y)
+        LtE    -> intBool (x <= y)
         And    -> x .&. y
         Or     -> x .|. y
         LShift -> shiftL x y
         RShift -> shiftR x y
         Xor    -> x `xor` y
 
-tobit :: Bool -> Value
-tobit True  = 1
-tobit False = 0
+intBool :: Bool -> Value
+intBool True  = 1
+intBool False = 0
 
 -- ============================
 agu :: AguCode -> Address -> Value -> Address
@@ -117,69 +141,34 @@ agu aguCode addr derefAddr = case aguCode of
         AguDown  -> derefAddr - 1
         
 -- ============================
-load :: Memory -> LdCode -> (Value, Address, Maybe Value) -> Value
-load mem ldCode (immval, address, input) = case ldCode of
+loadUnit :: LocalMem -> LdCode -> Value -> Address -> Maybe Value -> Value
+loadUnit mem ldCode immval address input = case ldCode of
         LdImm -> immval
-        LdMem -> mem !! address
+        LdMem -> load address mem
         LdInp -> fromMaybe 0 input
 
 -- ============================
-store :: Memory -> StCode -> Address -> Value -> Memory
-store mem stCode address value = case stCode of
+storeUnit :: LocalMem -> StCode -> Address -> Value -> LocalMem
+storeUnit mem stCode address value = case stCode of
         StNone -> mem
-        StMem  -> mem <~ (address, value)
+        StMem  -> store address value mem
 
 -- ============================
-pcUpd :: PCCode -> CodeAddr -> Value -> Value -> Bool -> Value -> CodeAddr
-pcUpd pcCode pc cond fromind hasInput immval = case pcCode of
+pcUpdate :: PCCode -> CodeAddr -> Value -> Value -> Bool -> Value -> CodeAddr
+pcUpdate pcCode pc cond fromind hasInput immval = case pcCode of
         PCNext     -> succ pc
         PCJump   t -> target t
         PCBranch t -> if cond /= 0 then target t else succ pc
         PCWait     -> if hasInput then succ pc else pc
     where target t = case t of
-                TAbs  -> immval
-                TRel  -> pc + immval
-                TInd  -> fromind
+                TAbs -> immval
+                TRel -> pc + immval
+                TInd -> fromind
 
 -- ============================
 sendOut :: IOCode -> Address -> Value -> Maybe SprockellOut
 sendOut ioCode address value = case ioCode of
         IONone    -> Nothing
-        IORead    -> Just $ (address, ReadReq)
-        IOWrite   -> Just $ (address, WriteReq value)
-        IOTest    -> Just $ (address, TestReq)
-
--- ======================================================================================
--- Putting it all together
-sprockell :: [Instruction] -> SprockellState -> Maybe Value -> (SprockellState, Maybe SprockellOut)
-sprockell instrs  SprState{..} inputVal = (sprState, output) where
-        pc            = regbank !! fromEnum PC
-        MachCode{..}  = decode (instrs !! pc)
-
-        regX          = regbank !! fromEnum inputX
-        regY          = regbank !! fromEnum inputY
-        aluOutput     = alu aluCode regX regY
-
-        regAddr       = regbank !! fromEnum deref
-        address       = agu aguCode addrImm regAddr
-
-        loadValue     = load localMem ldCode (immValue, address, inputVal)
-        localMem'     = store localMem stCode address regY
-
-        nextPC        = pcUpd pcCode pc regX regY (isJust inputVal) immValue
-
-        regbank'      = regbank <<~ [ (fromEnum result, aluOutput)
-                                    , (fromEnum loadReg, loadValue)
-                                    , (fromEnum Zero, 0)
-                                    , (fromEnum PC, nextPC) ]
-
-        sHalted       = pcCode == PCJump TRel && immValue == 0
-        sprState      = SprState {localMem=localMem' ,regbank=regbank', halted=sHalted}
-
-        -- Managed by System
-        output        = sendOut ioCode address regY
-
--- ==========================================================================================================
-
-xs <~ (i,x) = take i xs ++ [x] ++ drop (i+1) xs         -- TODO: note the effect for i >= length xs
-xs <<~ updates = foldl (<~) xs updates
+        IORead    -> Just (address, ReadReq)
+        IOWrite   -> Just (address, WriteReq value)
+        IOTest    -> Just (address, TestReq)
