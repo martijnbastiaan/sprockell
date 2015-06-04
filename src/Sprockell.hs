@@ -20,7 +20,7 @@ import TypesEtc
 | some constants
 -------------------------------------------------------------}
 
-dmemsize    = 128 :: Int    -- TODO: memory sizes as yet unused, no "out of memory" yet
+dmemsize    = 128 :: Int
 
 initSprockell :: Int -> SprockellState
 initSprockell ident = SprState 
