@@ -11,8 +11,8 @@ import TypesEtc
 {-------------------------------------------------------------
 | SPROCKELL: Simple PROCessor in hasKELL :-)
 |
-| j.kuper@utwente.nl
-| October 28, 2012
+| Initial definition: October 2012, Jan Kuper (j.kuper@utwente.nl)
+| Extensions: June 2015, Martijn Bastiaan, Arjan Boeijink, Jan Kuper
 -------------------------------------------------------------}
 
 
