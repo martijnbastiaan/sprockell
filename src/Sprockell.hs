@@ -12,7 +12,7 @@ import TypesEtc
 | SPROCKELL: Simple PROCessor in hasKELL :-)
 |
 | Initial definition: October 2012, Jan Kuper (j.kuper@utwente.nl)
-| Extensions: June 2015, Martijn Bastiaan, Arjan Boeijink, Jan Kuper
+| Extensions: June 2015, Martijn Bastiaan, Arjan Boeijink, Jan Kuper, Leon Schoorl
 -------------------------------------------------------------}
 
 
