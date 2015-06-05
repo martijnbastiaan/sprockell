@@ -1,8 +1,7 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module TypesEtc where
+
+import Data.Array (Ix)
 import Components
-import System.Random
 
 -- ==========================================================================================================
 
@@ -10,7 +9,6 @@ import System.Random
 type Value = Int
 type Address = Int
 type CodeAddr = Int
-type Seed = Int
 
 -- Sprockell instructions
 data Reg = Zero
@@ -22,7 +20,7 @@ data Reg = Zero
          | RegC
          | RegD
          | RegE
-         deriving (Eq,Show,Read,Ord,Enum,Bounded)
+         deriving (Eq,Show,Read,Ord,Enum,Bounded,Ix)
 
 data MemAddr = Addr Address
              | Deref Reg
@@ -51,18 +49,19 @@ data Instruction =
         | Jump Target                        -- Jump t: jump to target t (absolute, relative, indirect)
 
         | Load MemAddr Reg                   -- Load (Addr a) r : from "memory a" to "regbank r"
-                                             -- Load (Imm  v) r : put "Int v" in "regbank r"
+                                             -- Load (Deref p) r : from memory indexed by register p to "r"
         | Store Reg MemAddr                  -- Store (Addr r) a: from "regbank r" to "memory a"
-                                             -- Store (Imm  v) r: put "Int v" in "memory r"
+                                             -- Store (Deref p) r: from "r" to memory indexed by registers p
         | Push Reg                           -- push a value on the stack
         | Pop Reg                            -- pop a value from the stack
 
-        | TestAndSet MemAddr                 -- Tests address for 0 and sets it to 1 if it is. Returns 1 on success,
-                                             -- and 0 on failure. This is an atomic operation; it might therefore be
+        | Read MemAddr                       -- Send read request for an external address
+        | Receive Reg                        -- Wait for a reply of a request and save it in register
+        | Write Reg MemAddr                  -- Write content of reg to an external address
+        | TestAndSet MemAddr                 -- Request a test on address for 0 and sets it to 1 if it is.
+                                             -- Reply will contain 1 on success, and 0 on failure.
+                                             -- This is an atomic operation; it might therefore be
                                              -- used to implement locks or synchronisation.
-        | Read MemAddr                       -- Read from input and put value in regA
-        | Receive Reg                        -- Read on its way
-        | Write Reg MemAddr                  -- Write content of regA to output
 
         | EndProg                            -- end of program, deactivates Sprockell. If all sprockells are at
                                              -- this instruction, the simulation will halt.
@@ -126,33 +125,14 @@ data SprockellState = SprState
         , halted    :: !Bool
         }
 
+type InstructionMem = LookupTable CodeAddr Instruction
 type LocalMem = Memory Value
 type RegBank = RegFile Reg Value
 
-type RngState = StdGen
-        
-type SprockellOut = (Address, SprockelRequest)
-
-data SprockelRequest 
+type Reply = Value
+type Request = (Address, RequestKind)
+data RequestKind
         = ReadReq
         | WriteReq Value
         | TestReq
         deriving (Eq,Show)
-
-type Request = Maybe SprockellOut
-type Reply = Maybe Value
-
-newtype SprockellID = SprID Int deriving (Eq,Ord,Enum,Show,Num)
-type SharedMem = Memory Value
-type InstructionMem = LookupTable Int Instruction
-
-data SystemState = SysState
-        { instrs     :: !InstructionMem
-        , sprs       :: ![SprockellState]
-        , buffersS2M :: ![Buffer Request]
-        , buffersM2S :: ![Buffer Reply]
-        , queue      :: !(Fifo (SprockellID, SprockellOut))
-        , sharedMem  :: !SharedMem
-        , rngState   :: !RngState
-        , cycleCount :: !Int
-        }

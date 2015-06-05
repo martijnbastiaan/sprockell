@@ -1,9 +1,8 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, GeneralizedNewtypeDeriving #-}
 module System where
 
 import Control.Monad
 import System.IO
-import System.Random
 import Data.Maybe
 import Data.Bits
 import Data.Char
@@ -14,18 +13,31 @@ import Sprockell
 
 -- Constants
 bufferSize  = 2 -- bufferSize >  0
-memorySize  = 6 -- memorySize >= 0
+
+newtype SprockellID = SprID Int deriving (Eq,Ord,Enum,Show,Num)
+type SharedMem = Memory Value
+
+data SystemState = SysState
+        { instrs     :: !InstructionMem
+        , sprs       :: ![SprockellState]
+        , buffersS2M :: ![Buffer (Maybe Request)]
+        , buffersM2S :: ![Buffer (Maybe Reply)]
+        , queue      :: !(Fifo (SprockellID, Request))
+        , sharedMem  :: !SharedMem
+        , rngState   :: !RngState
+        , cycleCount :: !Int
+        }
 
 -- ===========================================================================================
 -- IO Devices
 -- ===========================================================================================
-type IODevice = SharedMem -> SprockellOut -> IO (SharedMem, Reply)
+type IODevice = SharedMem -> Request -> IO (SharedMem, Maybe Reply)
 
 memDevice :: IODevice
-memDevice mem (addr, ReadReq)        = return (mem, Just $ load addr mem)
-memDevice mem (addr, WriteReq value) = return (store addr value mem, Nothing)
-memDevice mem (addr, TestReq)        = return (store addr test mem, Just test)
-    where test = intBool $ testBit (load addr mem) 0
+memDevice mem (addr, ReadReq)        = return (mem, Just (mem !!! addr))
+memDevice mem (addr, WriteReq value) = return (mem <~= (addr, value), Nothing)
+memDevice mem (addr, TestReq)        = return (mem <~= (addr, test), Just test)
+    where test = intBool $ testBit (mem !!! addr) 0
 
 stdDevice :: IODevice
 stdDevice mem (_, WriteReq value) = putChar (chr value) >> return (mem, Nothing)
@@ -42,19 +54,18 @@ withDevice :: Int -> IODevice
 withDevice addr | addr <= 0xFFFFFF = memDevice
                 | otherwise        = stdDevice
 
-
-labelRequests :: [Maybe SprockellOut] -> [Maybe (SprockellID, SprockellOut)]
+labelRequests :: [Maybe Request] -> [Maybe (SprockellID, Request)]
 labelRequests = zipWith (\i -> fmap ((,) i)) [0..]
 
-processRequest :: Maybe (SprockellID, SprockellOut) -> SharedMem -> IO (SharedMem, (SprockellID, Maybe Value))
+processRequest :: Maybe (SprockellID, Request) -> SharedMem -> IO (SharedMem, (SprockellID, Maybe Reply))
 processRequest Nothing           mem = return (mem, (0, Nothing))
 processRequest (Just (spr, out)) mem = fmap (fmap ((,) spr)) $ withDevice (fst out) mem out
 
 system :: SystemState -> IO SystemState
 system SysState{..} = do 
-        let (r,rngState')     = random rngState
+        let (rnd, rngState')  = nextRandom rngState
         let newToQueue        = catMaybes $ labelRequests $ map peek buffersS2M
-        let (queue', xreq)    = deQueue $ catQueue queue $ shuffle r newToQueue
+        let (queue', xreq)    = deQueue $ catQueue queue $ shuffle rnd newToQueue
         (mem', (sid, reply)) <- processRequest xreq sharedMem
         let replies           = map (\i -> if i == sid then reply else Nothing) [0..]
         let (sprs', sprOutps) = unzip $ zipWith (sprockell instrs) sprs $ map peek buffersM2S
@@ -88,29 +99,9 @@ initSystemState n is seed = SysState
         , buffersM2S = replicate n (initBuffer bufferSize Nothing)
         , queue      = initFifo
         , sharedMem  = initMemory
-        , rngState   = mkStdGen seed
+        , rngState   = initRng seed
         , cycleCount = 0
         }
- 
-pickSeed :: IO (Int)
-pickSeed = getStdRandom $ randomR (0, maxBound)
-
--- Given a (random) number, shuffle a list
-shuffle :: Int -> [a] -> [a]
-shuffle _ [] = []
-shuffle n xs = el : shuffle n (left ++ right)
-    where
-        chosenIndex        = n `mod` (length xs)
-        (left, el, right) = slice chosenIndex xs
-
--- slicing
-slice' from to xs = take (to - from) (drop from xs)
-slice i xs = (left, element, right)
-    where
-        left = slice' 0 i xs
-        element = xs !! i
-        right = drop (i+1) xs
-
 
 run :: Int -> [Instruction] -> IO SystemState
 run n instrs = runDebug (const "") n instrs 
@@ -124,6 +115,6 @@ runWithSeed :: Seed -> Int -> [Instruction] -> IO SystemState
 runWithSeed seed = runDebugWithSeed seed (const "")
 
 runDebugWithSeed :: Seed -> (SystemState -> String) -> Int -> [Instruction] -> IO SystemState
-runDebugWithSeed seed debugFunc n instrs = printSeed >> simulate debugFunc (initSystemState n instrs seed)
-    where
-        printSeed = hPutStrLn stderr $ "Starting with random seed: " ++ show seed
+runDebugWithSeed seed debugFunc n instrs = do
+    hPutStrLn stderr ("Starting with random seed: " ++ show seed)
+    simulate debugFunc (initSystemState n instrs seed)
