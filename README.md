@@ -3,7 +3,6 @@ Sprockell is a **S**imple **Proc**essor in Has**kell**. It was originally writte
 
 # Features
 * Simple arithmetic
-* Simple I/O (stdin / stdout)
 * Memory mapped I/O
 * Branches / jumps
 * Stack
@@ -23,9 +22,9 @@ import Sprockell
 import System
 import TypesEtc
 
-prog = [ Const 8 RegA
-       , Const 9 RegB
-       , Compute Add RegA RegB RegC
+prog = [ Const 6 RegA
+       , Const 7 RegB
+       , Compute Mul RegA RegB RegC
        ]
 
 main = run 1 prog
@@ -38,7 +37,7 @@ ghc Program.hs
 ./Program
 ```
 
-(Of course, this simple program doesn't produce any output. You'd need the use stdout for that.)
+(Of course, this simple program doesn't produce any output. You can use ```Write RegC stdio``` for that.)
 
 # Debugging
 See the wiki on [debugging](https://github.com/martijnbastiaan/sprockell/wiki/debugging).

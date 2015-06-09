@@ -46,6 +46,9 @@ data SystemState = SysState
 -- ===========================================================================================
 -- IO Devices
 -- ===========================================================================================
+stdio = Addr stdioAddr
+stdioAddr = 0x1000000
+
 type IODevice = SharedMem -> Request -> IO (SharedMem, Maybe Reply)
 
 memDevice :: IODevice
@@ -66,7 +69,7 @@ stdDevice mem (_, ReadReq) = fmap ((,) mem . Just) $ do
 -- ===========================================================================================
 -- ===========================================================================================
 withDevice :: Address -> IODevice
-withDevice addr | addr <= 0xFFFFFF = memDevice
+withDevice addr | addr < stdioAddr = memDevice
                 | otherwise        = stdDevice
 
 processRequest :: Maybe Request -> SharedMem -> IO (SharedMem, Maybe Reply)

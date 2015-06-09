@@ -8,8 +8,8 @@ prog = [
            Const 78 RegA 
          , Const 10 RegB
          , Const 5  RegC
-         , Write RegA (Addr 0x1000000)
-         , Write RegB (Addr 0x1000000)
+         , Write RegA (Addr 0x1000000) -- write to stdout using explicit address
+         , Write RegB stdio            -- or using the alias
          , Write RegC (Addr 0)
          -- If we add some Nop's to delay the EndProg
          --  then the shared memory has time to handle all the writes.

@@ -21,8 +21,8 @@ prog = [
          , Const loopCount RegD
          , Const 1 RegE
 
-         , Write RegB (Addr 0x1000000) -- write uppercase letter
-         , Write RegC (Addr 0x1000000) -- write lowercase letter
+         , Write RegB stdio -- write uppercase letter
+         , Write RegC stdio -- write lowercase letter
          , Compute Sub RegD RegE RegD
          , Branch RegD (Rel (-3))
 
