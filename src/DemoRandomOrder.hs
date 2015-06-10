@@ -14,8 +14,8 @@ loopCount = 10
 
 prog :: [Instruction]
 prog = [
-           Const (ord 'A') RegA
-         , Const (ord 'a' - ord 'A') RegE
+           Const (fromIntegral (ord 'A')) RegA
+         , Const (fromIntegral (ord 'a' - ord 'A')) RegE
 
          , Compute Add RegA SPID RegB -- sprockell id as ascii character (uppercase)
          , Compute Add RegB RegE RegC -- (lowercase)
@@ -28,7 +28,8 @@ prog = [
          , Compute Sub RegD RegE RegD
          , Branch RegD (Rel (-3))
 
-         , Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop
+         , Read (Addr 0x0)  -- dummy read to ensure that
+         , Receive RegA     -- all write request are done
          , EndProg
        ]
 

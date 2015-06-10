@@ -20,11 +20,9 @@ import TypesEtc
 | some constants
 -------------------------------------------------------------}
 
-dmemsize    = 128 :: Int
-
-initSprockell :: Int -> SprockellState
-initSprockell ident = SprState 
-  { regbank  = initRegFile 0 <<~~ [(SPID, ident), (SP, dmemsize)]
+initSprockell :: Int -> Value -> SprockellState
+initSprockell dataMemSize ident = SprState 
+  { regbank  = initRegFile 0 <<~~ [(SPID, ident), (SP, fromIntegral dataMemSize)]
   , localMem = initMemory
   , halted   = False
   }
@@ -35,7 +33,8 @@ nullcode = MachCode
         , stCode      = StNone
         , aguCode     = AguImm
         , aluCode     = Or
-        , pcCode      = PCNext
+        , condCode    = CFalse
+        , target      = TRel
         , ioCode      = IONone
         , immValue    = 0
         , inputX      = Zero
@@ -62,16 +61,18 @@ sprockell instrs SprState{..} reply = (sprState, request)
         regAddr      = regbank!deref
         address      = agu aguCode addrImm regAddr
 
-        loadValue    = loadUnit localMem ldCode reply immValue address
+        loadValue    = loadUnit localMem ldCode address reply immValue
         localMem'    = storeUnit localMem stCode address regY
 
         request      = sendOut ioCode address regY
         
-        nextPC       = pcUpdate pcCode pc regX (isJust reply) regY immValue
+        cond         = condition condCode regX (isJust reply)
+        jumpTarget   = targetPC target pc regY immValue
+        nextPC       = if cond then jumpTarget else pc + 1
 
         regbank'     = regbank <<~~ [(result, aluOutput), (loadReg, loadValue), (PC, nextPC), (Zero, 0)]
 
-        sHalted      = pcCode == PCJump TRel && immValue == 0
+        sHalted      = condCode == CTrue && target == TRel && immValue == 0
         sprState     = SprState {localMem=localMem' ,regbank=regbank', halted=sHalted}
 
 
@@ -82,12 +83,12 @@ decode instr = case instr of
     Compute c rx ry res  -> nullcode {aluCode=c, inputX=rx, inputY=ry, result=res}
     Const n r            -> nullcode {ldCode=LdImm, immValue=n, loadReg=r}
     
-    Branch cr (Abs n)    -> nullcode {pcCode=PCBranch TAbs, inputX=cr, immValue=n}
-    Branch cr (Rel n)    -> nullcode {pcCode=PCBranch TRel, inputX=cr, immValue=n}
-    Branch cr (Ind i)    -> nullcode {pcCode=PCBranch TInd, inputX=cr, inputY=i   }
-    Jump   (Abs n)       -> nullcode {pcCode=PCJump TAbs, immValue=n}
-    Jump   (Rel n)       -> nullcode {pcCode=PCJump TRel, immValue=n}
-    Jump   (Ind i)       -> nullcode {pcCode=PCJump TInd, inputY=i}
+    Branch cr (Abs n)    -> nullcode {condCode=CReg, inputX=cr, target=TAbs, immValue=n}
+    Branch cr (Rel n)    -> nullcode {condCode=CReg, inputX=cr, target=TRel, immValue=n}
+    Branch cr (Ind i)    -> nullcode {condCode=CReg, inputX=cr, target=TInd, inputY=i}
+    Jump   (Abs n)       -> nullcode {condCode=CTrue, target=TAbs, immValue=n}
+    Jump   (Rel n)       -> nullcode {condCode=CTrue, target=TRel, immValue=n}
+    Jump   (Ind i)       -> nullcode {condCode=CTrue, target=TInd, inputY=i}
 
     Load  (Addr a)  r    -> nullcode {ldCode=LdMem, aguCode=AguImm, addrImm=a, loadReg=r}
     Load  (Deref p) r    -> nullcode {ldCode=LdMem, aguCode=AguDeref, deref=p, loadReg=r}
@@ -97,7 +98,7 @@ decode instr = case instr of
     Push r               -> nullcode {stCode=StMem, inputY=r, aguCode=AguDown, deref=SP, aluCode=Decr, inputX=SP, result=SP}
     Pop r                -> nullcode {ldCode=LdMem, loadReg=r, aguCode=AguDeref, deref=SP, aluCode=Incr, inputX=SP, result=SP}
 
-    Receive r            -> nullcode {ldCode=LdInp, pcCode=PCWait, loadReg=r}
+    Receive r            -> nullcode {ldCode=LdInp, loadReg=r, condCode=CWait, target=TRel, immValue=0}
     Read (Addr a)        -> nullcode {ioCode=IORead, aguCode=AguImm, addrImm=a}
     Read (Deref p)       -> nullcode {ioCode=IORead, aguCode=AguDeref, deref=p}
     TestAndSet (Addr a)  -> nullcode {ioCode=IOTest, aguCode=AguImm, addrImm=a}
@@ -105,7 +106,7 @@ decode instr = case instr of
     Write r (Addr a)     -> nullcode {ioCode=IOWrite, aguCode=AguImm, addrImm=a, inputY=r}
     Write r (Deref p)    -> nullcode {ioCode=IOWrite, aguCode=AguDeref, deref=p, inputY=r}
 
-    EndProg              -> nullcode {pcCode=PCJump TRel, immValue=0}
+    EndProg              -> nullcode {condCode=CTrue, target=TRel, immValue=0}
     Debug _              -> nullcode
 
 
@@ -127,8 +128,8 @@ alu opCode x y = case opCode of
         LtE    -> intBool (x <= y)
         And    -> x .&. y
         Or     -> x .|. y
-        LShift -> shiftL x y
-        RShift -> shiftR x y
+        LShift -> shiftL x (fromIntegral y)
+        RShift -> shiftR x (fromIntegral y)
         Xor    -> x `xor` y
 
 intBool :: Bool -> Value
@@ -143,13 +144,13 @@ agu aguCode addr derefAddr = case aguCode of
         AguDown  -> derefAddr - 1
         
 -- ============================
-loadUnit :: LocalMem -> LdCode -> Maybe Reply -> Value -> Address -> Value
-loadUnit mem ldCode reply immval address = case (ldCode, reply) of
-    (LdImm, Nothing) -> immval
-    (LdMem, Nothing) -> mem !!! address
-    (LdInp, Just rx) -> rx
-    (LdInp, Nothing) -> 0
-    (_    , Just rx) -> error ("Sprockell ignored a system response of value: " ++ show rx)
+loadUnit :: LocalMem -> LdCode -> Address -> Maybe Reply -> Value -> Value
+loadUnit mem ldCode address reply immval = case (ldCode, reply) of
+        (LdImm, Nothing) -> immval
+        (LdMem, Nothing) -> mem !!! address
+        (LdInp, Just rx) -> rx
+        (LdInp, Nothing) -> 0
+        (_    , Just rx) -> error ("Sprockell ignored a system response of value: " ++ show rx)
 
 -- ============================
 storeUnit :: LocalMem -> StCode -> Address -> Value -> LocalMem
@@ -158,16 +159,18 @@ storeUnit mem stCode address value = case stCode of
         StMem  -> mem <~= (address, value)
 
 -- ============================
-pcUpdate :: PCCode -> CodeAddr -> Value -> Bool -> Value -> Value -> CodeAddr
-pcUpdate pcCode pc cond hasInput fromind immval = case pcCode of
-        PCNext     -> pc + 1
-        PCJump   t -> target t
-        PCBranch t -> if cond /= 0 then target t else pc + 1
-        PCWait     -> if hasInput then pc + 1 else pc
-    where target t = case t of
-                TAbs -> immval
-                TRel -> pc + immval
-                TInd -> fromind
+condition :: CondCode -> Value -> Bool -> Bool
+condition cCode cReg hasInput = case cCode of
+        CFalse -> False
+        CTrue  -> True
+        CReg   -> cReg /= 0
+        CWait  -> not hasInput
+
+targetPC :: TargetCode -> CodeAddr -> Value -> Value -> CodeAddr
+targetPC tCode pc fromind immval = case tCode of
+        TAbs -> immval
+        TRel -> pc + immval
+        TInd -> fromind
 
 -- ============================
 sendOut :: IOCode -> Address -> Value -> Maybe Request

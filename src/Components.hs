@@ -4,6 +4,7 @@ module Components where
 -- Goal of this version is supporting (memory) efficient simulation (don't mind the implementation details).
 -- An alternative implementation of this module could support synthesis to a FPGA (using Clash).
 
+import Data.Int (Int32)
 import Data.Maybe (fromMaybe)
 import Data.List (foldl')
 import qualified Data.IntMap.Strict as IM
@@ -24,11 +25,11 @@ newtype Memory a = Memory (IM.IntMap a)
 initMemory :: Memory a
 initMemory = Memory IM.empty
 
-(!!!) :: Num a => Memory a -> Int -> a
-(Memory m) !!! i = fromMaybe 0 (IM.lookup i m)
+(!!!) :: Num a => Memory a -> Int32 -> a
+(Memory m) !!! i = fromMaybe 0 (IM.lookup (fromIntegral i) m)
 
-(<~=) :: Memory a -> (Int, a) -> Memory a
-(Memory m) <~= (i,x) = Memory (IM.insert i x m)
+(<~=) :: Memory a -> (Int32, a) -> Memory a
+(Memory m) <~= (i,x) = Memory (IM.insert (fromIntegral i) x m)
 
 newtype RegFile r a = RegFile (M.Map r a)
 
@@ -83,16 +84,8 @@ newtype RngState = RngState StdGen
 initRng :: Seed -> RngState
 initRng seed = RngState (mkStdGen seed)
 
-nextRandom :: RngState -> (Int, RngState)
+nextRandom :: Random a => RngState -> (a, RngState)
 nextRandom (RngState rs) = fmap RngState $ random rs
 
 pickSeed :: IO Seed
 pickSeed = getStdRandom $ randomR (0, maxBound)
-
--- Given a (random) number, shuffle a list
-shuffle :: Int -> [a] -> [a]
-shuffle _ [] = []
-shuffle n xs = el : shuffle n (left ++ right)
-    where
-        chosenIndex      = n `mod` length xs
-        (left, el:right) = splitAt chosenIndex xs

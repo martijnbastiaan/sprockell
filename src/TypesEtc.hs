@@ -1,45 +1,12 @@
 module TypesEtc where
 
+import Data.Int (Int32)
 import Data.Array (Ix)
 import Components
 
 -- ==========================================================================================================
 
--- type synonyms for clarity
-type Value = Int
-type Address = Int
-type CodeAddr = Int
-
 -- Sprockell instructions
-data Reg = Zero
-         | PC
-         | SP
-         | SPID
-         | RegA
-         | RegB
-         | RegC
-         | RegD
-         | RegE
-         deriving (Eq,Show,Read,Ord,Enum,Bounded,Ix)
-
-data MemAddr = Addr Address
-             | Deref Reg
-             deriving (Eq,Show,Read)
-
-data Target = Abs CodeAddr
-            | Rel CodeAddr
-            | Ind Reg
-            deriving (Eq,Show,Read)
-
-data Operator = Add  | Sub | Mul  | Div | Mod 
-              -- comparision operations
-              |  Equal | NEq | Gt | Lt | GtE | LtE
-              -- logical/binary operations
-              | And | Or | Xor | LShift | RShift
-              -- Internal
-              | Decr | Incr
-              deriving (Eq,Show,Read)
-
 data Instruction = 
           Compute Operator Reg Reg Reg       -- Compute opCode r0 r1 r2: go to "alu",
                                              --       do "opCode" on regs r0, r1, and put result in reg r2
@@ -69,14 +36,48 @@ data Instruction =
         | Debug String                       -- No real instruction, for debug purposes.
         deriving (Eq,Show,Read)
 
+data Reg = Zero                              -- Read only zero value
+         | PC                                -- Program counter
+         | SP                                -- Stack pointer used by Push and Pop
+         | SPID                              -- Sprockell identifier
+         | RegA
+         | RegB
+         | RegC
+         | RegD
+         | RegE
+         deriving (Eq,Show,Read,Ord,Enum,Bounded,Ix)
+
+data MemAddr = Addr Address
+             | Deref Reg
+             deriving (Eq,Show,Read)
+
+data Target = Abs CodeAddr
+            | Rel CodeAddr
+            | Ind Reg
+            deriving (Eq,Show,Read)
+
+data Operator = Add  | Sub | Mul  | Div | Mod 
+              -- comparision operations
+              |  Equal | NEq | Gt | Lt | GtE | LtE
+              -- logical/binary operations
+              | And | Or | Xor | LShift | RShift
+              -- Internal
+              | Decr | Incr
+              deriving (Eq,Show,Read)
+
+-- type synonyms for clarity
+type Value = Int32
+type Address = Int32
+type CodeAddr = Int32
+
 -- ==========================================================================================================
 -- Internal Sprockell data structures
 
-data PCCode = PCNext
-            | PCJump TargetCode
-            | PCBranch TargetCode
-            | PCWait
-            deriving (Eq,Show)
+data CondCode = CFalse
+              | CTrue
+              | CReg
+              | CWait
+              deriving (Eq,Show)
 
 data TargetCode = TAbs
                 | TRel
@@ -104,20 +105,21 @@ data IOCode = IONone
             deriving (Eq,Show)
 
 data MachCode = MachCode
-       { ldCode    :: LdCode       -- source of load results
-       , stCode    :: StCode       -- store command
-       , aguCode   :: AguCode      -- address calculation 
-       , aluCode   :: Operator     -- arithmetic operation
-       , ioCode    :: IOCode       -- communication with the rest of the system
-       , immValue  :: Value        -- value from Immediate
-       , inputX    :: Reg          -- first input register
-       , inputY    :: Reg          -- seconde input register
-       , result    :: Reg          -- alu result register
-       , loadReg   :: Reg          -- where to load results are written to
-       , addrImm   :: Address      -- address constant
-       , deref     :: Reg          -- address register
-       , pcCode    :: PCCode       -- next PC determination
-       } deriving (Eq,Show)
+        { ldCode    :: LdCode       -- source of load results
+        , stCode    :: StCode       -- store command
+        , aguCode   :: AguCode      -- address calculation 
+        , aluCode   :: Operator     -- arithmetic operation
+        , ioCode    :: IOCode       -- communication with the rest of the system
+        , immValue  :: Value        -- value from Immediate
+        , inputX    :: Reg          -- first input register
+        , inputY    :: Reg          -- seconde input register
+        , result    :: Reg          -- alu result register
+        , loadReg   :: Reg          -- where to load results are written to
+        , addrImm   :: Address      -- address constant
+        , deref     :: Reg          -- address register
+        , condCode  :: CondCode     -- branching condition
+        , target    :: TargetCode   -- branch target computation
+        } deriving (Eq,Show)
 
 data SprockellState = SprState
         { regbank   :: !RegBank     -- register bank
@@ -131,8 +133,7 @@ type RegBank = RegFile Reg Value
 
 type Reply = Value
 type Request = (Address, RequestKind)
-data RequestKind
-        = ReadReq
-        | WriteReq Value
-        | TestReq
-        deriving (Eq,Show)
+data RequestKind = ReadReq
+                 | WriteReq Value
+                 | TestReq
+                 deriving (Eq,Show)
