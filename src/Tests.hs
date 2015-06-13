@@ -53,6 +53,33 @@ indirectStoreProg = [
 indirectStoreTest sysState
          | getRegs sysState 0 [RegA, RegB, RegC] == [2, 3, 2] = "OK"
 
+-- Check the value of local mem which was not previously written to --
+unwrittenLocalSuite = ("UnwrittenLocalTest", 1, unwrittenLocalProg, unwrittenLocalTest)
+unwrittenLocalProg = [
+          Const 2 RegA
+        , Const 3 RegB
+        , Load (Addr 0) RegA
+        , Load (Deref RegB) RegB
+        , EndProg
+        ]
+unwrittenLocalTest sysState
+         | getRegs sysState 0 [RegA, RegB] == [0, 0] = "OK"
+
+-- Check the value of shared mem which was not previously written to --
+unwrittenSharedSuite = ("UnwrittenSharedTest", 1, unwrittenSharedProg, unwrittenSharedTest)
+unwrittenSharedProg = [
+          Const 2 RegA
+        , Const 3 RegB
+        , Read (Addr 0)
+        , Receive RegA
+        , Read (Deref RegB)
+        , Receive RegB
+        , EndProg
+        ]
+unwrittenSharedTest sysState
+         | getRegs sysState 0 [RegA, RegB] == [0, 0] = "OK"
+
+
 
 -- Running test logic --
 runSuite :: TestSuite -> IO ()
@@ -68,5 +95,7 @@ main = do
     runSuite writeZeroSuite
     runSuite indirectLoadSuite
     runSuite indirectStoreSuite
+    runSuite unwrittenLocalSuite
+    runSuite unwrittenSharedSuite
     return ()
 
