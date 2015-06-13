@@ -1,7 +1,5 @@
-import Sprockell
-import System
-import TypesEtc
-
+{-# LANGUAGE RecordWildCards #-}
+import Sprockell.System
 
 -- Note that it never prints "First shared memaddr equals 5": all sprockells
 -- are terminated before the shared memory gets a chance to write it.
@@ -16,12 +14,12 @@ prog = [
          -- If we add some Nop's to delay the EndProg
          --  then the shared memory has time to handle all the writes.
          -- And the debug message will be printed.
-         -- , Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop
+         --, Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop,Nop
          , EndProg
        ]
 
 debug :: SystemState -> String
-debug SysState{ sharedMem = 5:xs } = "First shared memaddr equals 5.\n"
-debug _ = ""
+debug SysState{..} | (sharedMem !!! 0) == 5 = "First shared memaddr equals 5.\n"
+debug _ = "Not 5\n"
 
 main = runDebug debug 3 prog

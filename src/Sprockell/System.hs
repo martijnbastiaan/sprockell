@@ -1,5 +1,10 @@
 {-# LANGUAGE RecordWildCards, GeneralizedNewtypeDeriving #-}
-module System where
+module Sprockell.System
+    ( module Sprockell.Components
+    , module Sprockell.TypesEtc
+    , module Sprockell.Sprockell
+    , module Sprockell.System
+    ) where
 
 import Control.Monad
 import System.IO
@@ -7,9 +12,9 @@ import Data.Maybe
 import Data.Bits
 import Data.Char
 import Debug.Trace
-import Components
-import TypesEtc
-import Sprockell
+import Sprockell.Components
+import Sprockell.TypesEtc
+import Sprockell.Sprockell
 
 data SystemConfig = SysConf
         { bufferDelay :: Int  -- bufferDelay > 0, also impacts maximum number of outstanding read requests

@@ -1,7 +1,4 @@
-import Components
-import Sprockell
-import System
-import TypesEtc
+import Sprockell.System
 import Debug.Trace
 
 type TestSuite = (String, Int, [Instruction], (SystemState -> String))

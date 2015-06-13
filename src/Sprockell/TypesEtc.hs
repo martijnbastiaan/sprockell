@@ -1,8 +1,8 @@
-module TypesEtc where
+module Sprockell.TypesEtc where
 
 import Data.Int (Int32)
 import Data.Array (Ix)
-import Components
+import Sprockell.Components
 
 -- ==========================================================================================================
 

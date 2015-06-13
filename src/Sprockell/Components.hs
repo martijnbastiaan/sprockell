@@ -1,4 +1,4 @@
-module Components where
+module Sprockell.Components where
 
 -- This module contains a collection of basic hardware structures such as memories and buffers
 -- Goal of this version is supporting (memory) efficient simulation (don't mind the implementation details).

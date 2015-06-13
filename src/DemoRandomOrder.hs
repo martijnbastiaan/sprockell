@@ -1,6 +1,4 @@
-import Sprockell
-import System
-import TypesEtc
+import Sprockell.System
 import Data.Char
 
 {-
