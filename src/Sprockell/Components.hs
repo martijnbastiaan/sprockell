@@ -12,6 +12,7 @@ import qualified Data.Map.Strict as M
 import Data.Array (Ix)
 import qualified Data.Array.IArray as IA
 import System.Random
+import qualified Data.Char as Char
 
 class MemoryStructure m where
     (!) :: (Ord i, Ix i, Show i) => m i a -> i -> a
@@ -89,3 +90,9 @@ nextRandom (RngState rs) = fmap RngState $ random rs
 
 pickSeed :: IO Seed
 pickSeed = getStdRandom $ randomR (0, maxBound)
+
+
+ord :: Integral i => Char -> i
+ord = fromIntegral . Char.ord
+chr :: Integral i => i -> Char
+chr = Char.chr . fromIntegral

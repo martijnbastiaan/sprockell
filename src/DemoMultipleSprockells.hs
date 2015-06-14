@@ -1,5 +1,4 @@
 import Sprockell.System
-import Data.Char
 
 {-
     This program demonstrates how to run multiple sprockells at once, each executing

@@ -1,5 +1,4 @@
 import Sprockell.System
-import Data.Char
 
 {-
     This program demonstrates how the ordering of access to the shared memory can vary.
@@ -12,8 +11,8 @@ loopCount = 10
 
 prog :: [Instruction]
 prog = [
-           Const (fromIntegral (ord 'A')) RegA
-         , Const (fromIntegral (ord 'a' - ord 'A')) RegE
+           Const (ord 'A') RegA
+         , Const (ord 'a' - ord 'A') RegE
 
          , Compute Add RegA SPID RegB -- sprockell id as ascii character (uppercase)
          , Compute Add RegB RegE RegC -- (lowercase)

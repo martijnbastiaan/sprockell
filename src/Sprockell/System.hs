@@ -10,7 +10,6 @@ import Control.Monad
 import System.IO
 import Data.Maybe
 import Data.Bits
-import Data.Char
 import Debug.Trace
 import Sprockell.Components
 import Sprockell.TypesEtc
@@ -58,12 +57,12 @@ memDevice mem (addr, TestReq)        = return (mem <~= (addr, test), Just test)
     where test = intBool $ testBit (mem !!! addr) 0
 
 stdDevice :: IODevice
-stdDevice mem (_, WriteReq value) = putChar (chr $ fromIntegral value) >> return (mem, Nothing)
+stdDevice mem (_, WriteReq value) = putChar (chr value) >> return (mem, Nothing)
 stdDevice _   (a, TestReq) = error ("TestAndSet not supported on address: " ++ show a)
 stdDevice mem (_, ReadReq) = fmap ((,) mem . Just) $ do
     rdy <- hReady stdin
     if rdy
-        then fmap (fromIntegral . ord) getChar        
+        then fmap ord getChar
         else return (-1)
 
 -- ===========================================================================================
