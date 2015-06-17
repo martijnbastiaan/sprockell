@@ -53,8 +53,8 @@ type IODevice = SharedMem -> Request -> IO (SharedMem, Maybe Reply)
 memDevice :: IODevice
 memDevice mem (addr, ReadReq)        = return (mem, Just (mem !!! addr))
 memDevice mem (addr, WriteReq value) = return (mem <~= (addr, value), Nothing)
-memDevice mem (addr, TestReq)        = return (mem <~= (addr, test), Just test)
-    where test = intBool $ testBit (mem !!! addr) 0
+memDevice mem (addr, TestReq)        = return (mem <~= (addr, 1),     Just test)
+    where test = intBool $ not $ testBit (mem !!! addr) 0
 
 stdDevice :: IODevice
 stdDevice mem (_, WriteReq value) = putChar (chr value) >> return (mem, Nothing)
