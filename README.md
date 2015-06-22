@@ -18,13 +18,12 @@ Clone the repository, compile `System.hs` using `ghc` and run it from the comman
 Of course, you can compile your own program:
 
 ```haskell
-import Sprockell
-import System
-import TypesEtc
+import Sprockell.System
 
 prog = [ Const 6 RegA
        , Const 7 RegB
        , Compute Mul RegA RegB RegC
+       , EndProg
        ]
 
 main = run 1 prog

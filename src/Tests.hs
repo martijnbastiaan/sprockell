@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 import Sprockell.System
 import Debug.Trace
 
@@ -79,6 +81,19 @@ unwrittenSharedProg = [
 unwrittenSharedTest sysState
          | getRegs sysState 0 [RegA, RegB] == [0, 0] = "OK"
 
+testAndSetSuite = ("TestAndSetTest", 1, testAndSetProg, testAndSetTest)
+testAndSetProg = [
+          TestAndSet (Addr 0)
+        , Receive RegA
+        , TestAndSet (Addr 0)
+        , Receive RegB
+        , EndProg
+        ]
+testAndSetTest sysState@SysState{ .. }
+         | (sharedMem !!! 0) == 1 && getRegs sysState 0 [RegA, RegB] == [1, 0] = "OK"
+         | otherwise             = "Fail"
+
+
 
 
 -- Running test logic --
@@ -97,5 +112,6 @@ main = do
     runSuite indirectStoreSuite
     runSuite unwrittenLocalSuite
     runSuite unwrittenSharedSuite
+    runSuite testAndSetSuite
     return ()
 
