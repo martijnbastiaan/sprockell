@@ -79,6 +79,10 @@ deQueue :: Fifo a -> (Fifo a, Maybe a)
 deQueue (Fifo []    ) = (Fifo [], Nothing)
 deQueue (Fifo (x:xs)) = (Fifo xs, Just x)
 
+isEmptyQueue :: Fifo a -> Bool
+isEmptyQueue (Fifo []) = True
+isEmptyQueue _         = False
+
 type Seed = Int
 newtype RngState = RngState StdGen
 

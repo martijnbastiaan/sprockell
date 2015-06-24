@@ -104,8 +104,8 @@ system SysConf{..} SysState{..} = do
 -- ===========================================================================================
 -- "Simulates" sprockells by recursively calling them over and over again
 simulate :: SystemConfig -> (SystemState -> String) -> SystemState -> IO SystemState
-simulate sysConf debugFunc sysState
-    | all halted (sprs sysState) = return sysState
+simulate sysConf debugFunc sysState@SysState{..}
+    | all halted sprs && all isEmptyQueue sReqFifos  = return sysState
     | otherwise = do
         sysState' <- system sysConf sysState
         putStr (debugFunc sysState')

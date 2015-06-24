@@ -25,8 +25,8 @@ prog = [
          , Compute Sub RegD RegE RegD
          , Branch RegD (Rel (-3))
 
-         , Read (Addr 0x0)  -- dummy read to ensure that
-         , Receive RegA     -- all write request are done
+         --, Read (Addr 0x0)  -- dummy read to ensure that
+         --, Receive RegA     -- all write request are done
          , EndProg
        ]
 
